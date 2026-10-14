@@ -66,7 +66,8 @@ def run_window(cfg):
         app.quit()
 
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
-                        on_quit=_on_quit, link=link)
+                        on_quit=_on_quit, link=link,
+                        on_turn_on=vr.enable_global_input)
 
     def _calibrate_overlay_factory():
         # Only build the VR overlay when SteamVR is actually connected.
@@ -156,6 +157,29 @@ def _register(cfg):
     return 0
 
 
+def _turn_on(cfg):
+    """Flip SteamVR's 'Enable global input from overlays' to on.
+
+    For the headset shell: a CLI way to do what the window's Turn on button
+    does, without needing SteamVR connected to a desktop session.
+    """
+    import openvr
+    from .steamvr import GLOBAL_SETTING
+    try:
+        # Background init doesn't start SteamVR; it just fails if SteamVR
+        # isn't running (and it must be, to write its settings).
+        openvr.init(openvr.VRApplication_Background)
+        try:
+            openvr.VRSettings().setBool(*GLOBAL_SETTING, True)
+        finally:
+            openvr.shutdown()
+        print("enabled")
+        return 0
+    except Exception as err:
+        print(f"could not enable: {err}")
+        return 1
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     parser = argparse.ArgumentParser(
@@ -166,6 +190,8 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="print a diagnostic report")
     parser.add_argument("--register", action="store_true",
                         help="set up starting with SteamVR (used by the installer)")
+    parser.add_argument("--turn-on", action="store_true",
+                        help="enable SteamVR's 'Enable global input from overlays'")
     parser.add_argument("--version", action="version",
                         version=f"FrameAssist {__import__('frameassist').__version__}")
     args = parser.parse_args(argv)
@@ -177,6 +203,8 @@ def main(argv=None):
         return _check(cfg)
     if args.register:
         return _register(cfg)
+    if args.turn_on:
+        return _turn_on(cfg)
     if args.background:
         return _run_background(cfg)
     return run_window(cfg)

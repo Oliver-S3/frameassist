@@ -179,13 +179,17 @@ class MainWindow(QMainWindow):
     state_sig = Signal(str, str)
     transcript_sig = Signal(str)
 
-    def __init__(self, cfg, engine, on_settings=None, on_quit=None, link=None):
+    def __init__(self, cfg, engine, on_settings=None, on_quit=None, link=None,
+                 on_turn_on=None):
         super().__init__()
         self.cfg = cfg
         self.engine = engine
         self.on_settings = on_settings
         self.on_quit = on_quit
         self.link = link
+        # Called when the user taps "Turn on" for the SteamVR global-input
+        # setting. Set by app.py to vr.enable_global_input.
+        self.on_turn_on = on_turn_on
         # Set by app.py: a callable()-> overlay that renders calibration charts
         # in VR when SteamVR is available, else None.
         self.calibrate_overlay = None
@@ -212,6 +216,11 @@ class MainWindow(QMainWindow):
         self.status_label.setObjectName("status")
         self.status_label.setAlignment(Qt.AlignCenter)
         root.addWidget(self.status_label)
+
+        self.turn_on_btn = QPushButton("Turn on (SteamVR setting)")
+        self.turn_on_btn.setVisible(False)
+        self.turn_on_btn.clicked.connect(self._turn_on)
+        root.addWidget(self.turn_on_btn, 0, Qt.AlignCenter)
 
         self.last_label = QLabel("(hold both grips and talk — your words land here, "
                                  "and in the text box)")
@@ -331,6 +340,15 @@ class MainWindow(QMainWindow):
         text = message or STATE_TEXT.get(state, "Ready")
         self.status_label.setText(text)
         self.status_label.setStyleSheet(f"color: {color}; font-weight: 600;")
+        # Show the "Turn on" shortcut when SteamVR needs its global-input
+        # setting enabled (the message carries that exact wording).
+        self.turn_on_btn.setVisible(
+            bool(message) and ("Enable global input" in message or "Turn on" in message))
+
+    def _turn_on(self):
+        if self.on_turn_on:
+            self.on_turn_on()
+        self.status_label.setText("Turned on. Restart the headset to finish.")
 
     def _show_transcript(self, text):
         if text:
