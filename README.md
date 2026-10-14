@@ -97,6 +97,14 @@ rather edit it yourself — keep it short, only words it gets wrong.
 bash ~/.local/share/frameassist/uninstall.sh
 ```
 
+This removes the app and stops it starting with SteamVR, but **keeps** your
+settings and My Words (in `~/.config/frameassist`). Add `--purge` to remove
+those and the logs too.
+
+```bash
+bash ~/.local/share/frameassist/uninstall.sh --purge
+```
+
 ## How it works (for the curious)
 
 - **Speech to text:** [faster-whisper](https://github.com/SYSTRAN/faster-whisper),
