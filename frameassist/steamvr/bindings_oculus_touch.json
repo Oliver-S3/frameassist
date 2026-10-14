@@ -1,0 +1,69 @@
+{
+  "action_manifest_version": 0,
+  "alias_info": {},
+  "app_key": "frameassist.voicetyping",
+  "bindings": {
+    "/actions/grip_l": {
+      "sources": [
+        {
+          "path": "/user/hand/left/input/grip/click",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/grip_l/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/grip_r": {
+      "sources": [
+        {
+          "path": "/user/hand/right/input/grip/click",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/grip_r/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/stick_l": {
+      "sources": [
+        {
+          "path": "/user/hand/left/input/thumbstick/click",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/stick_l/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/stick_r": {
+      "sources": [
+        {
+          "path": "/user/hand/right/input/thumbstick/click",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/stick_r/in/press"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "category": "steamvr_input",
+  "controller_type": "oculus_touch",
+  "description": "Hold both grips to talk. Double-tap both for hands-free. Flick right stick to send, left for Escape.",
+  "name": "FrameAssist defaults (oculus_touch)",
+  "options": {},
+  "simulated_actions": []
+}

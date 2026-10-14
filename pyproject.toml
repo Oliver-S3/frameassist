@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frameassist"
+version = "1.0.0"
+description = "FrameAssist: voice typing for the Steam Frame. Hold both grips, talk, let go."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "faster-whisper>=1.0.2",
+    "PySide6-Essentials>=6.5",
+    "openvr>=2.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.scripts]
+frameassist = "frameassist.app:main"
+
+[tool.setuptools]
+packages = ["frameassist"]
+
+[tool.setuptools.package-data]
+frameassist = ["steamvr/*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

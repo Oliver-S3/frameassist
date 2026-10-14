@@ -1,0 +1,65 @@
+{
+  "default_bindings": [
+    {
+      "controller_type": "frame_controller",
+      "binding_url": "bindings_frame_controller.json"
+    },
+    {
+      "controller_type": "oculus_touch",
+      "binding_url": "bindings_oculus_touch.json"
+    },
+    {
+      "controller_type": "knuckles",
+      "binding_url": "bindings_knuckles.json"
+    }
+  ],
+  "action_sets": [
+    {
+      "name": "/actions/grip_l",
+      "usage": "single"
+    },
+    {
+      "name": "/actions/grip_r",
+      "usage": "single"
+    },
+    {
+      "name": "/actions/stick_l",
+      "usage": "single"
+    },
+    {
+      "name": "/actions/stick_r",
+      "usage": "single"
+    }
+  ],
+  "actions": [
+    {
+      "name": "/actions/grip_l/in/press",
+      "type": "boolean"
+    },
+    {
+      "name": "/actions/grip_r/in/press",
+      "type": "boolean"
+    },
+    {
+      "name": "/actions/stick_l/in/press",
+      "type": "boolean"
+    },
+    {
+      "name": "/actions/stick_r/in/press",
+      "type": "boolean"
+    }
+  ],
+  "localization": [
+    {
+      "language_tag": "en_US",
+      "/actions/grip_l": "Left grip",
+      "/actions/grip_r": "Right grip",
+      "/actions/stick_l": "Left stick",
+      "/actions/stick_r": "Right stick",
+      "/actions/grip_l/in/press": "Left grip: talk (with right), copy (double-tap)",
+      "/actions/grip_r/in/press": "Right grip: talk (with left), paste (double-tap)",
+      "/actions/stick_l/in/press": "Left stick: flick for Escape",
+      "/actions/stick_r/in/press": "Right stick: flick to send"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+# Force LF line endings everywhere (the app runs on SteamOS/Linux).
+* text=auto eol=lf
+
+# Shell scripts must stay LF (CRLF breaks them).
+*.sh text eol=lf
+
+# JSON and SVG stay as-is (already LF).
+*.json text eol=lf
+*.svg text eol=lf
