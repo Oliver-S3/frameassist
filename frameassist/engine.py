@@ -44,6 +44,9 @@ class Engine:
         self._recorder = recorder or Recorder()
         self._lock = threading.Lock()
         self._working = False
+        # Calibration session (calibrate.py): when active, flicks and talk
+        # drive the chart instead of typing text.
+        self.calibrate = None
 
     # -- loading ---------------------------------------------------------------
     def load(self):
@@ -86,9 +89,15 @@ class Engine:
                 self._need_typist().shortcut("paste")
                 self._set(READY, "Pasted.")
             elif cmd == "enter":
-                self._need_typist().shortcut("enter")
+                if self.calibrate is not None and self.calibrate.active:
+                    self.calibrate.next()
+                else:
+                    self._need_typist().shortcut("enter")
             elif cmd == "escape":
-                self._need_typist().shortcut("escape")
+                if self.calibrate is not None and self.calibrate.active:
+                    self.calibrate.prev()
+                else:
+                    self._need_typist().shortcut("escape")
 
     def cancel_talking(self):
         with self._lock:
@@ -156,6 +165,24 @@ class Engine:
         text = finalize(text, self.cfg, polish=self)
         text = text.lstrip()  # keep the trailing "space after dictation"
         self.last_text = text.strip()
+
+        # While calibrating, the words are a command to the chart, not text to
+        # type into a text box.
+        if self.calibrate is not None and self.calibrate.active:
+            command, detail = self.calibrate.interpret(text)
+            if command == "save" and detail:
+                from .calibrate import save_profile
+                cal = self.calibrate
+                try:
+                    save_profile(detail, test=cal.test, fineness=cal.fineness)
+                    self._set(READY, f"Profile '{detail}' saved.")
+                except OSError as err:
+                    log.warning("couldn't save profile %r: %s", detail, err)
+                    self._set(READY, f"Couldn't save profile: {err}")
+            else:
+                self._set(READY, self.calibrate.status())
+            return
+
         if text.strip():
             self.copy_clipboard(text.strip())
             if self.cfg.get("after_talking", "type") == "type":

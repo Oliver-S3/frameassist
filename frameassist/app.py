@@ -67,6 +67,15 @@ def run_window(cfg):
 
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
                         on_quit=_on_quit, link=link)
+
+    def _calibrate_overlay_factory():
+        # Only build the VR overlay when SteamVR is actually connected.
+        if vr.connected:
+            from .calibrate import CalibrationOverlay
+            return CalibrationOverlay(vr.vr)
+        return None
+
+    window.calibrate_overlay = _calibrate_overlay_factory
     # Wire state/transcript to the window AND the VR badge. engine._set already
     # stores (state, message) and calls on_state, so on_state just forwards.
     engine.on_state = lambda state, message: (

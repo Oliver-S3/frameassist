@@ -84,6 +84,25 @@ output. There's also a real-device test checklist in
 - **AI polish**: tidy each dictation through your own OpenRouter account
   (off by default; only the text is sent).
 
+## Calibrate
+
+The Frame's IPD wheel shows a number, but lens spacers and face fit shift the
+real optical alignment, so what you *see* matters more than the dial. **Calibrate**
+(button in the window) shows on-headset charts ~1.4 m away while you roll the
+wheel and talk:
+
+- **Resolution** — a Siemens star and fine line pairs; roll the wheel until the
+  centre is crisp and free of doubling.
+- **Alignment** — a crosshair with two vertical bars and rings; with the right
+  IPD the bars look centred and single.
+- **Sweet spot** — fine centre detail plus corner markers to find your best lens
+  position.
+
+Navigation reuses your gestures: **flick right stick = next**, **flick left =
+back**, and talking to the chart works too — "finer", "coarser", "next", and
+"save as with-spacers" to remember a profile per fitment. Profiles live in
+`~/.config/frameassist/profiles.json`.
+
 ## My words
 
 Names and words the speech model keeps getting wrong (like a game's name).

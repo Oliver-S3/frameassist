@@ -186,6 +186,9 @@ class MainWindow(QMainWindow):
         self.on_settings = on_settings
         self.on_quit = on_quit
         self.link = link
+        # Set by app.py: a callable()-> overlay that renders calibration charts
+        # in VR when SteamVR is available, else None.
+        self.calibrate_overlay = None
         self.setWindowTitle("FrameAssist")
         self.setMinimumSize(360, 460)
 
@@ -222,10 +225,13 @@ class MainWindow(QMainWindow):
         copy.clicked.connect(self._copy_last)
         guide = QPushButton("How to use")
         guide.clicked.connect(self._show_guide)
+        calibrate = QPushButton("Calibrate")
+        calibrate.clicked.connect(self._open_calibrate)
         self.settings_btn = QPushButton("Settings")
         self.settings_btn.clicked.connect(self._open_settings)
         row.addWidget(copy)
         row.addWidget(guide)
+        row.addWidget(calibrate)
         row.addWidget(self.settings_btn)
         root.addLayout(row)
 
@@ -312,6 +318,13 @@ class MainWindow(QMainWindow):
                 self.on_settings(self.cfg)
             self.status_label.setText("Settings saved.")
 
+    def _open_calibrate(self):
+        dialog = CalibrateDialog(self.engine, self, overlay_factory=self.calibrate_overlay)
+        dialog.exec()
+        # engine.calibrate stays attached with whatever state the dialog left.
+        self.status_label.setText(self.engine.calibrate.status() if self.engine.calibrate
+                                  else "Calibration off.")
+
     def _show_state(self, state, message):
         self.mic.set_listening(state == LISTENING)
         color = STATE_COLORS.get(state, ACCENT)
@@ -331,6 +344,140 @@ class MainWindow(QMainWindow):
         if self.on_quit:
             self.on_quit()
         super().closeEvent(event)
+
+
+class CalibrateDialog(QDialog):
+    """Start/stop the on-headset calibration charts, see which one you're on,
+    and save the current sweet spot as a named profile."""
+
+    def __init__(self, engine, parent=None, overlay_factory=None):
+        super().__init__(parent)
+        self.engine = engine
+        self.overlay_factory = overlay_factory or (lambda: None)
+        self.overlay = None
+        self.setWindowTitle("Calibrate FrameAssist")
+        self.setMinimumWidth(480)
+
+        from .calibrate import CalibrationSession, load_profiles, remove_profile, save_profile
+
+        self.CalibrationSession = CalibrationSession
+        self.load_profiles = load_profiles
+        self.remove_profile = remove_profile
+        self.save_profile = save_profile
+
+        self.session = engine.calibrate if getattr(engine, "calibrate", None) else CalibrationSession()
+        self.session.on_change = self._on_session_change
+        engine.calibrate = self.session
+
+        root = QVBoxLayout(self)
+        hint = QLabel(
+            "Roll the IPD wheel while a chart is shown. Flick right stick = next, "
+            "left = back. Talk to choose: “finer”, “coarser”, “next”, "
+            "“save as my fit”, “done”.")
+        hint.setWordWrap(True)
+        hint.setObjectName("muted")
+        root.addWidget(hint)
+
+        self.status = QLabel(self.session.status())
+        self.status.setObjectName("status")
+        self.status.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
+        root.addWidget(self.status)
+
+        row = QHBoxLayout()
+        self.start_btn = QPushButton("Start" if not self.session.active else "Stop")
+        self.start_btn.clicked.connect(self._toggle)
+        self.next_btn = QPushButton("Next")
+        self.next_btn.clicked.connect(lambda: self._act(self.session.next))
+        self.prev_btn = QPushButton("Back")
+        self.prev_btn.clicked.connect(lambda: self._act(self.session.prev))
+        row.addWidget(self.start_btn)
+        row.addWidget(self.prev_btn)
+        row.addWidget(self.next_btn)
+        root.addLayout(row)
+
+        finer = QPushButton("Finer")
+        finer.clicked.connect(lambda: self._act(self.session.finer))
+        coarser = QPushButton("Coarser")
+        coarser.clicked.connect(lambda: self._act(self.session.coarser))
+        row2 = QHBoxLayout()
+        row2.addWidget(coarser)
+        row2.addWidget(finer)
+        root.addLayout(row2)
+
+        self.profiles_label = QLabel("")
+        self.profiles_label.setObjectName("muted")
+        self.profiles_label.setWordWrap(True)
+        root.addWidget(self.profiles_label)
+
+        save_row = QHBoxLayout()
+        self.name_edit = QLineEdit()
+        self.name_edit.setPlaceholderText("Save current as (e.g. with-spacers)")
+        self.save_btn = QPushButton("Save profile")
+        self.save_btn.clicked.connect(self._save)
+        save_row.addWidget(self.name_edit, 1)
+        save_row.addWidget(self.save_btn)
+        root.addLayout(save_row)
+
+        close = QPushButton("Close")
+        close.clicked.connect(self.accept)
+        root.addWidget(close, 0, Qt.AlignRight)
+
+        self._refresh_profiles()
+
+    def _on_session_change(self, status, message=""):
+        self.status.setText(status)
+        if message:
+            self.status.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
+        active = bool(getattr(self.session, "active", False))
+        self._update_overlay(active)
+        self.start_btn.setText("Stop" if active else "Start")
+
+    def _update_overlay(self, active):
+        if not active:
+            if self.overlay:
+                self.overlay.close()
+                self.overlay = None
+            return
+        if self.overlay is None:
+            self.overlay = self.overlay_factory()
+        if self.overlay is not None:
+            self.overlay.show(self.session.test, self.session.fineness)
+
+    def _toggle(self):
+        if self.session.active:
+            self._act(self.session.stop)
+        else:
+            self._act(self.session.start)
+
+    def _act(self, method):
+        method()
+        self._on_session_change(self.session.status())
+
+    def _save(self):
+        name = self.name_edit.text().strip()
+        if not name:
+            self.status.setText("Type a profile name first.")
+            return
+        self.save_profile(name, test=self.session.test, fineness=self.session.fineness)
+        self.name_edit.clear()
+        self.status.setText(f"Profile '{name}' saved.")
+        self._refresh_profiles()
+
+    def _refresh_profiles(self):
+        profiles = self.load_profiles()
+        if profiles:
+            names = ", ".join(p.get("name", "?") for p in profiles)
+            self.profiles_label.setText("Saved: " + names)
+        else:
+            self.profiles_label.setText("No profiles saved yet.")
+
+    def reject(self):
+        self._update_overlay(False)
+        super().reject()
+
+    def accept(self):
+        self._update_overlay(False)
+        super().accept()
 
 
 def run_window(cfg, engine, on_settings=None, on_quit=None, link=None):
