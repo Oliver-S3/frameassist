@@ -11,7 +11,6 @@ The connection also carries the last dictation, so the window can always copy
 it again.
 """
 
-import ctypes
 import fcntl
 import json
 import os
@@ -371,6 +370,9 @@ def run_background(cfg, engine_cls):
     def on_state(s, msg):
         state["engine"] = s
         state["message"] = msg
+        # engine._set stores state itself; this still needs to reach the VR
+        # badge (Background._on_state is replaced below).
+        work.vr.show_state(s, msg)
 
     def on_copy(text):
         try:

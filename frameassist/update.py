@@ -64,6 +64,8 @@ def run_self_update(url=None, pip_args=("-U", "frameassist")):
     Returns a message describing what happened. Never raises.
     """
     url = url or DEFAULT_URL
+    if not url:
+        return "No update source configured (FRAMEASSIST_UPDATE_URL)."
     last = latest_version(url)
     if last and _version_tuple(last) <= _version_tuple(current_version()):
         return "Already up to date."

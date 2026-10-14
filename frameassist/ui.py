@@ -9,16 +9,14 @@ and the window ignores typed keys so it can never be typed into.
 import sys
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QKeySequence, QPainter, QPalette, QPen
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-    QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox,
-    QPushButton, QScrollArea, QTextEdit, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget,
 )
 
-from .config import MODELS, load, load_words, save, words_file
+from .config import MODELS, load, save
 from .engine import ERROR, LISTENING, READY, WORKING
-from . import __version__
 
 DARK_BG = "#0d1016"
 CARD = "#161b24"

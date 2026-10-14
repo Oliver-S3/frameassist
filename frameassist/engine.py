@@ -10,9 +10,7 @@ the window and the VR badge.
 """
 
 import threading
-import time
 
-from . import gestures as G
 from .audio import Recorder
 from .keyboard import Typist
 from .log import log

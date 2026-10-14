@@ -53,10 +53,6 @@ def run_window(cfg):
     vr = SteamVR(in_games=cfg.get("in_games", False),
                  autolaunch=cfg.get("autostart", True))
     vr.set_gesture_engine(GestureEngine(lambda cmd: engine.hotkey({"cmd": cmd})))
-    engine.on_state = lambda state, message: (
-        engine._set(state, message) or window.notify_state(state, message)
-        or vr.show_state(state, message))
-    engine.on_transcript = window.notify_transcript
 
     def _on_settings_changed(new_cfg):
         vr.set_options(in_games=new_cfg.get("in_games", False))
@@ -71,6 +67,11 @@ def run_window(cfg):
 
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
                         on_quit=_on_quit, link=link)
+    # Wire state/transcript to the window AND the VR badge. engine._set already
+    # stores (state, message) and calls on_state, so on_state just forwards.
+    engine.on_state = lambda state, message: (
+        window.notify_state(state, message) or vr.show_state(state, message))
+    engine.on_transcript = window.notify_transcript
     window.show()
     vr.start()
     threading.Thread(target=engine.load, daemon=True).start()

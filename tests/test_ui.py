@@ -32,3 +32,35 @@ def test_settings_dialog_values(app):
     assert values["model"] == "base.en"
     assert values["add_space"] is True
     dialog.close()
+
+
+def test_run_window_wiring_smoke(monkeypatch):
+    """Run the real window-copy setup (offscreen) to catch wiring bugs: the
+    engine state callback must forward without recursing, and the transcript
+    hook must be attached after the window exists.
+
+    Linux-only: run_window imports the service handoff module, which uses
+    fcntl and Unix sockets unavailable on Windows."""
+    import sys
+    if not sys.platform.startswith("linux"):
+        pytest.skip("run_window imports Linux-only service module")
+
+    from frameassist import service
+    from frameassist import app as app_mod
+
+    monkeypatch.setattr(service, "status", lambda *a, **k: None)
+    monkeypatch.setattr(service, "Link", type("Link", (), {"open": staticmethod(
+        lambda *a, **k: None)}))
+
+    # Don't wait on the real event loop or touch real SteamVR hardware/files.
+    monkeypatch.setattr(app_mod.QApplication, "exec", lambda self: 0)
+    monkeypatch.setattr(app_mod, "_install_kwin_rule", lambda: None)
+
+    cfg = {"model": "base.en", "add_space": True, "in_games": False,
+           "autostart": False, "after_talking": "type", "ai_polish": False,
+           "ai_key": "", "no_model": True}
+
+    # run_window builds everything; engine.load is started on a daemon thread,
+    # so keep no_model set and let the thread die with the test.
+    assert app_mod.run_window(cfg) == 0
+    # Reaching here means wiring (window created before hooks attached) worked.

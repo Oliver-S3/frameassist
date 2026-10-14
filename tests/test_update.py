@@ -66,9 +66,15 @@ def test_run_self_update_up_to_date(monkeypatch):
     assert "up to date" in update.run_self_update().lower()
 
 
-def test_run_self_update_rolls_back_on_failure(monkeypatch):
+def test_run_self_update_no_source_configured(monkeypatch):
     monkeypatch.setattr(update, "DEFAULT_URL", "")
+    assert "no update source" in update.run_self_update().lower()
+
+
+def test_run_self_update_rolls_back_on_failure(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_URL", "https://x/version.json")
     monkeypatch.setattr(update, "current_version", lambda: "1.0.0")
+    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: _json_resp("2.0.0"))
     calls = []
 
     def fake_pip(*args):
