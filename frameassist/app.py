@@ -5,8 +5,10 @@ Runs as a window (``frameassist``), as the background copy SteamVR starts
 """
 
 import argparse
+import os
 import sys
 import threading
+from pathlib import Path
 
 from .config import load
 from .log import log, setup_logging
@@ -194,6 +196,41 @@ def _type_test(cfg, text):
     return 0
 
 
+def _open_bindings(cfg):
+    """Open SteamVR's controller-binding editor for this app so the user can
+    inspect/test which buttons are bound. In the editor, each button should
+    light up in 'Test my buttons'; that tells us whether the grip paths line
+    up with what the Frame controller actually reports."""
+    from .steamvr import APP_KEY, write_vrmanifest
+    from .log import log
+    import openvr
+    try:
+        openvr.init(openvr.VRApplication_Overlay)
+    except Exception as err:
+        print(f"could not connect to SteamVR: {err}")
+        return 1
+    try:
+        openvr.VRApplications().addApplicationManifest(str(write_vrmanifest()), False)
+        openvr.VRApplications().identifyApplication(os.getpid(), APP_KEY)
+        openvr.VRInput().setActionManifestPath(str(
+            Path(__file__).parent / "steamvr" / "actions.json"))
+    except Exception as err:
+        log.warning("bindings setup: %s", err)
+    try:
+        ok = openvr.VRInput().openBindingUI(APP_KEY, 0, 0, False)
+        print("opened binding UI" if ok else "could not open binding UI")
+        openvr.VRApplications().setApplicationAutoLaunch(APP_KEY, cfg.get("autostart", True))
+        return 0 if ok else 1
+    except Exception as err:
+        print(f"could not open binding UI: {err}")
+        return 1
+    finally:
+        try:
+            openvr.shutdown()
+        except Exception:
+            pass
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     parser = argparse.ArgumentParser(
@@ -208,6 +245,8 @@ def main(argv=None):
                         help="enable SteamVR's 'Enable global input from overlays'")
     parser.add_argument("--type-test", metavar="TEXT",
                         help="type TEXT into the focused window and exit (typing diagnosis)")
+    parser.add_argument("--bindings", action="store_true",
+                        help="open SteamVR's controller binding editor for this app")
     parser.add_argument("--version", action="version",
                         version=f"FrameAssist {__import__('frameassist').__version__}")
     args = parser.parse_args(argv)
@@ -219,6 +258,8 @@ def main(argv=None):
         return _check(cfg)
     if args.register:
         return _register(cfg)
+    if args.bindings:
+        return _open_bindings(cfg)
     if args.turn_on:
         return _turn_on(cfg)
     if args.type_test is not None:
