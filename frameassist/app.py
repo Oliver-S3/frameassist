@@ -180,6 +180,20 @@ def _turn_on(cfg):
         return 1
 
 
+def _type_test(cfg, text):
+    """Type some text into whichever window has focus — a standalone check of
+    the virtual-keyboard layer, with no mic/STT involved. If this types into a
+    desktop text box, the whole typing path works and the problem is elsewhere."""
+    from .keyboard import Typist
+    t = Typist()
+    try:
+        t.type_text(text)
+    finally:
+        t.close()
+    print(f"typed: {text!r}")
+    return 0
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     parser = argparse.ArgumentParser(
@@ -192,6 +206,8 @@ def main(argv=None):
                         help="set up starting with SteamVR (used by the installer)")
     parser.add_argument("--turn-on", action="store_true",
                         help="enable SteamVR's 'Enable global input from overlays'")
+    parser.add_argument("--type-test", metavar="TEXT",
+                        help="type TEXT into the focused window and exit (typing diagnosis)")
     parser.add_argument("--version", action="version",
                         version=f"FrameAssist {__import__('frameassist').__version__}")
     args = parser.parse_args(argv)
@@ -205,6 +221,8 @@ def main(argv=None):
         return _register(cfg)
     if args.turn_on:
         return _turn_on(cfg)
+    if args.type_test is not None:
+        return _type_test(cfg, args.type_test)
     if args.background:
         return _run_background(cfg)
     return run_window(cfg)
