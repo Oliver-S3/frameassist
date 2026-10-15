@@ -57,7 +57,11 @@ def write_vrmanifest():
     app = {
         "app_key": APP_KEY,
         "launch_type": "binary",
-        "binary_path_linux": exe,
+        # SteamVR on the Frame (linuxarm64 v2.18) requires the key literally
+        # named "binary_path" — using binary_path_linux makes it skip the app
+        # ("must specify binary_path for launch_type binary. Skipping"), which
+        # drops our registration, our app identity and our global input.
+        "binary_path": exe,
         "arguments": args,
         "is_dashboard_overlay": True,
         "action_manifest_path": str(HERE / "actions.json"),

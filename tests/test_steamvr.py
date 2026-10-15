@@ -132,6 +132,24 @@ def test_window_vr_sets_up_bindings(vr):
     assert appman and "frameassist" in str(appman)
 
 
+def test_vrmanifest_uses_binary_path_not_linux_suffix(tmp_path, monkeypatch):
+    """Regression: SteamVR on the Frame skips apps whose vrmanifest keys the
+    binary with 'binary_path_linux' — it requires the literal 'binary_path'.
+    If that happens, registration is skipped and controller bindings/global
+    input never attach."""
+    import json
+    from frameassist import steamvr as svr_mod
+    monkeypatch.setattr(svr_mod, "DATA_DIR", tmp_path)
+    path = svr_mod.write_vrmanifest()
+    doc = json.loads(path.read_text())
+    app = doc["applications"][0]
+    assert app["app_key"] == svr_mod.APP_KEY
+    assert "binary_path" in app, "vrmanifest must use 'binary_path' (not binary_path_linux)"
+    assert "binary_path_linux" not in app
+    assert app["launch_type"] == "binary"
+    assert str(app["action_manifest_path"]).endswith("actions.json")
+
+
 # -- Engine-level --------------------------------------------------------------
 class Recorder:
     def __init__(self, out_path):
