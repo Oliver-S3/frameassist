@@ -40,7 +40,11 @@ STATE_TEXT = {
 
 
 def _style(app):
-    app.setApplicationName("FrameAssist")
+    # Lowercase application name = the WM_CLASS KWin rules (and focus.py) key
+    # on. Display name stays "FrameAssist"; setApplicationName drives the
+    # window class/app-id on X11 and Wayland.
+    app.setApplicationName("frameassist")
+    app.setApplicationDisplayName("FrameAssist")
     app.setStyleSheet(f"""
         QWidget {{ background: {DARK_BG}; color: {TEXT}; font-family: Inter, "Noto Sans", Cantarell, "DejaVu Sans"; font-size: 15px; }}
         QPushButton {{ background: {CARD}; border: 1px solid #232b38; border-radius: 10px; padding: 9px 16px; }}

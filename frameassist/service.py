@@ -356,14 +356,15 @@ def run_background(cfg, engine_cls):
     try:
         from PySide6.QtWidgets import QApplication
         app = QApplication.instance() or QApplication([sys.argv[0]])
-        app.setApplicationName("FrameAssist")
+        app.setApplicationName("frameassist")
+        app.setApplicationDisplayName("FrameAssist")
         app.setQuitOnLastWindowClosed(False)
     except Exception:
         # Qt isn't needed in the background beyond the clipboard; fall back
         # to a headless loop so the shortcuts still work.
         from PySide6.QtCore import QCoreApplication
         app = QCoreApplication.instance() or QCoreApplication([sys.argv[0]])
-        app.setApplicationName("FrameAssist")
+        app.setApplicationName("frameassist")
 
     state = {}
 
