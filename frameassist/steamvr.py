@@ -473,7 +473,7 @@ class Badge:
     def show(self, state, message):
         if self.handle is None:
             return
-        from .app import ERROR, LISTENING, READY, WORKING
+        from .engine import ERROR, LISTENING, READY, WORKING
         text = {LISTENING: "Listening...", WORKING: "Typing..."}.get(state)
         color = {LISTENING: "#ff4d5e", WORKING: "#ffb547"}.get(state, "#2ee6b8")
         if state == READY and message.startswith("Didn"):
