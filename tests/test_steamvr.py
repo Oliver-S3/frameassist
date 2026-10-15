@@ -132,21 +132,28 @@ def test_window_vr_sets_up_bindings(vr):
     assert appman and "frameassist" in str(appman)
 
 
-def test_vrmanifest_uses_binary_path_not_linux_suffix(tmp_path, monkeypatch):
-    """Regression: SteamVR on the Frame skips apps whose vrmanifest keys the
-    binary with 'binary_path_linux' — it requires the literal 'binary_path'.
-    If that happens, registration is skipped and controller bindings/global
-    input never attach."""
+def test_vrmanifest_uses_platform_binary_path_key(tmp_path, monkeypatch):
+    """Regression: SteamVR on the Frame (Linux ARM64) selects the executable by
+    platform key and its own runtime.vrmanifest uses 'binary_path_linux_arm'.
+    Missing/mismatched keys make it log 'must specify binary_path for launch_type
+    binary. Skipping', skip registration, and drop all overlay-global input."""
     import json
+    import platform
     from frameassist import steamvr as svr_mod
     monkeypatch.setattr(svr_mod, "DATA_DIR", tmp_path)
     path = svr_mod.write_vrmanifest()
     doc = json.loads(path.read_text())
     app = doc["applications"][0]
     assert app["app_key"] == svr_mod.APP_KEY
-    assert "binary_path" in app, "vrmanifest must use 'binary_path' (not binary_path_linux)"
-    assert "binary_path_linux" not in app
     assert app["launch_type"] == "binary"
+    arch = platform.machine().lower()
+    if arch in ("aarch64", "arm64", "armv8l"):
+        assert "binary_path_linux_arm" in app, "ARM build must use binary_path_linux_arm"
+        assert "binary_path_linux" not in app
+    else:
+        assert "binary_path_linux" in app
+        assert "binary_path_linux_arm" not in app
+    assert "binary_path_linux_arm" in app or "binary_path_linux" in app
     assert str(app["action_manifest_path"]).endswith("actions.json")
 
 

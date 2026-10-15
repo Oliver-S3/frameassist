@@ -49,7 +49,16 @@ def launch_command():
 
 
 def write_vrmanifest():
-    """Tell SteamVR about the app so it can auto-start it and list its bindings."""
+    """Tell SteamVR about the app so it can auto-start it and list its bindings.
+
+    SteamVR picks the binary path by *platform key*. On the Steam Frame the
+    runtime is Linux ARM64, and Valve's own apps declare it under
+    ``binary_path_linux_arm`` (see /opt/steamvr/resources/config/runtime.vrmanifest).
+    If none of the platform keys matches, SteamVR refuses the app with
+    "must specify binary_path for launch_type binary. Skipping" — which drops
+    our registration, our app identity, and with it all overlay-global input.
+    """
+    import platform
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     path = DATA_DIR / "frameassist.vrmanifest"
     exe = launch_command()
@@ -57,17 +66,17 @@ def write_vrmanifest():
     app = {
         "app_key": APP_KEY,
         "launch_type": "binary",
-        # SteamVR on the Frame (linuxarm64 v2.18) requires the key literally
-        # named "binary_path" — using binary_path_linux makes it skip the app
-        # ("must specify binary_path for launch_type binary. Skipping"), which
-        # drops our registration, our app identity and our global input.
-        "binary_path": exe,
         "arguments": args,
         "is_dashboard_overlay": True,
         "action_manifest_path": str(HERE / "actions.json"),
         "strings": {"en_us": {"name": "FrameAssist",
                               "description": "Hold both grips and talk"}},
     }
+    arch = platform.machine().lower()
+    if arch in ("aarch64", "arm64", "armv8l"):
+        app["binary_path_linux_arm"] = exe
+    else:
+        app["binary_path_linux"] = exe
     path.write_text(json.dumps({"source": "builtin", "applications": [app]}, indent=2))
     return path
 
