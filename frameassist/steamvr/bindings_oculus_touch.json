@@ -6,11 +6,17 @@
     "/actions/grip_l": {
       "sources": [
         {
-          "path": "/user/hand/left/input/grip/click",
+          "path": "/user/hand/left/input/grip",
           "mode": "button",
-          "parameters": {},
+          "parameters": {
+            "click_activate_threshold": "0.1",
+            "click_deactivate_threshold": "0.05"
+          },
           "inputs": {
             "click": {
+              "output": "/actions/grip_l/in/press"
+            },
+            "touch": {
               "output": "/actions/grip_l/in/press"
             }
           }
@@ -20,11 +26,17 @@
     "/actions/grip_r": {
       "sources": [
         {
-          "path": "/user/hand/right/input/grip/click",
+          "path": "/user/hand/right/input/grip",
           "mode": "button",
-          "parameters": {},
+          "parameters": {
+            "click_activate_threshold": "0.1",
+            "click_deactivate_threshold": "0.05"
+          },
           "inputs": {
             "click": {
+              "output": "/actions/grip_r/in/press"
+            },
+            "touch": {
               "output": "/actions/grip_r/in/press"
             }
           }
@@ -34,7 +46,7 @@
     "/actions/stick_l": {
       "sources": [
         {
-          "path": "/user/hand/left/input/thumbstick/click",
+          "path": "/user/hand/left/input/thumbstick",
           "mode": "button",
           "parameters": {},
           "inputs": {
@@ -48,7 +60,7 @@
     "/actions/stick_r": {
       "sources": [
         {
-          "path": "/user/hand/right/input/thumbstick/click",
+          "path": "/user/hand/right/input/thumbstick",
           "mode": "button",
           "parameters": {},
           "inputs": {

@@ -38,14 +38,28 @@ CONTROLLERS = {
 }
 
 
+def _button_path(hand, comp):
+    """Where a button lives. On the Frame controller the grip component has no
+    '/click' suffix — the grip is an analog squeeze converted to a button via
+    activate/deactivate thresholds (Valve's own frame_controller binding uses
+    /input/grip with mode button + click_activate_threshold 0.1)."""
+    return f"/user/hand/{hand}/input/{comp}"
+
+
 def bindings(ctype, where):
     out = {}
     for button, (hand, comp) in where.items():
+        is_grip = comp == "grip"
+        inputs = {"click": {"output": f"/actions/{button}/in/press"}}
+        if is_grip:
+            # touch lets a light grip squeeze also register, not just a full click
+            inputs["touch"] = {"output": f"/actions/{button}/in/press"}
         out[f"/actions/{button}"] = {"sources": [{
-            "path": f"/user/hand/{hand}/input/{comp}/click",
+            "path": _button_path(hand, comp),
             "mode": "button",
-            "parameters": {},
-            "inputs": {"click": {"output": f"/actions/{button}/in/press"}},
+            "parameters": ({"click_activate_threshold": "0.1",
+                            "click_deactivate_threshold": "0.05"} if is_grip else {}),
+            "inputs": inputs,
         }]}
     return {
         "action_manifest_version": 0,
