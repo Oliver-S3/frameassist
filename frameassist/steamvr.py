@@ -498,6 +498,13 @@ class Badge:
         try:
             self.handle = self.overlay.createOverlay(APP_KEY + ".badge", "FrameAssist")
             self.overlay.setOverlayWidthInMeters(self.handle, 0.22)
+            # Let the laser interact with this undocked floating overlay
+            # (the "Allow undocked dashboard overlay interaction" behavior).
+            try:
+                self.overlay.setOverlayFlag(
+                    self.handle, openvr.VROverlayFlags_MakeOverlaysInteractiveIfVisible, True)
+            except Exception:
+                pass
             m = openvr.HmdMatrix34_t()
             for r in range(3):
                 for c in range(4):
