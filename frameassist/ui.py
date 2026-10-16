@@ -119,7 +119,9 @@ class SettingsDialog(QDialog):
         self.after = QComboBox()
         self.after.addItem("Type into the text box", "type")
         self.after.addItem("Only copy to the clipboard", "clipboard")
-        self.after.setCurrentIndex(0 if cfg.get("after_talking", "type") == "type" else 1)
+        self.after.addItem("Copy + paste (works with streamed games/apps)", "paste")
+        self.after.setCurrentIndex(
+            {"type": 0, "clipboard": 1, "paste": 2}.get(cfg.get("after_talking", "type"), 0))
         form.addRow("After talking", self.after)
 
         self.in_games = QCheckBox("Keep shortcuts on during VR games")

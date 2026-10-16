@@ -256,6 +256,32 @@ def test_engine_talk_flow(tmp_path):
     assert states[-1][0] == eng_mod.READY
 
 
+def test_engine_paste_mode_copies_and_ctrl_v(tmp_path):
+    """'after_talking: paste' copies the text then sends Ctrl+V — the path
+    that rides Steam Remote Play's clipboard + hotkey forwarding into a
+    streamed remote app (per-character uinput typing only reaches the Frame's
+    own focused window)."""
+    wav = tmp_path / "x.wav"
+    wav.write_bytes(b"RIFF")
+    rec = Recorder(wav)
+    typ = Typist()
+    tr = FakeTranscriber()
+    clipboard = []
+
+    cfg = {"model": "base.en", "add_space": True, "after_talking": "paste",
+           "ai_polish": False, "ai_key": ""}
+    e = Engine(cfg, transcriber=tr, typist=typ, recorder=rec,
+               copy_clipboard=lambda t: clipboard.append(t))
+    e.load()
+    e.hotkey({"cmd": "talk_start"})
+    e.hotkey({"cmd": "talk_stop"})
+    _wait_until(lambda: bool(typ.shortcuts))
+    assert typ.typed == []                      # no per-character typing
+    assert typ.shortcuts == ["paste"]           # Ctrl+V sent
+    assert clipboard == ["hello world"]         # clipboard set for the sync
+    assert typ.close is not None
+
+
 def test_engine_copy_pastes(monkeypatch):
     typ = Typist()
     cfg = {"after_talking": "type", "ai_polish": False, "ai_key": ""}

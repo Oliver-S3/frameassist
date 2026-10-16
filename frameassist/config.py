@@ -23,7 +23,7 @@ DEFAULTS = {
     "press_enter": False,
     "in_games": False,
     "autostart": True,
-    "after_talking": "type",  # "type" | "clipboard"
+    "after_talking": "type",  # "type" | "clipboard" | "paste"
     "ai_polish": False,
     "ai_key": "",
     # Where each dictation gesture ends up. "copy" or "paste" set the
@@ -34,7 +34,7 @@ DEFAULTS = {
 
 # Known keys, so an old config with a bad value is repaired, not trusted.
 _ENUM_KEYS = {
-    "after_talking": ("type", "clipboard"),
+    "after_talking": ("type", "clipboard", "paste"),
 }
 
 
