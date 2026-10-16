@@ -9,10 +9,9 @@ runs on the headset itself, with no account and nothing sent online. (There's
 an optional AI polish that sends only the *text* of a dictation through your
 own OpenRouter account.)
 
-Inspired by [GripSpeak](https://gripspeak.itch.io/gripspeak), built as an
-independent, open-source implementation reusing the proven Steam Frame
-architecture of [frame-voice](https://github.com/juanramosjr1/frame-voice)
-(MIT).
+Inspired by — and built on the proven Steam Frame architecture of —
+[frame-voice](https://github.com/juanramosjr1/frame-voice) (MIT): an independent,
+open-source implementation of voice typing for the Steam Frame.
 
 ---
 
@@ -163,10 +162,7 @@ controller logic frame by frame against a stand-in for SteamVR. See
   SteamVR Input, systemd/SteamVR service tie-in, KWin focus handling): adapted
   from [frame-voice](https://github.com/juanramosjr1/frame-voice) (MIT,
   © its authors), a similar app for the Frame. See `THIRD_PARTY_NOTICES.md`.
-- Feature design and gesture set: the interaction model is inspired by
-  [GripSpeak](https://gripspeak.itch.io/gripspeak), a commercial app by a
-  different author; FrameAssist is an independent, from-scratch
-  reimplementation with a compatible interaction model, not a copy of its
-  code.
+- Feature design and gesture set: inspired by the interaction model of
+  voice-typing-for-VR apps that hold a grip to talk.
 
 MIT licensed. Not affiliated with or endorsed by Valve.
