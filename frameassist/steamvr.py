@@ -380,8 +380,12 @@ class SteamVR:
                 self._warn_once(f"reading {button}: {err!r}")
                 self.bound[button] = False
                 continue
-            self.bound[button] = bool(data.bActive)
-            if data.bActive and data.bState:
+            new_active = bool(data.bActive)
+            if new_active != self.bound.get(button):
+                log.info("steamvr: action %s bActive -> %s (state=%s, paused=%s)",
+                         button, new_active, data.bState, self.paused)
+            self.bound[button] = new_active
+            if new_active and data.bState:
                 buttons.add(button)
 
         self._emit(buttons, now)
