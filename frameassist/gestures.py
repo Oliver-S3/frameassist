@@ -50,12 +50,13 @@ LEFT = "left"
 RIGHT = "right"
 
 DEFAULT_TIMINGS = {
-    "tap_max": 0.30,          # a press shorter than this is a tap
-    "double_ms": 0.45,        # two taps within this are a double-tap
-    "talk_hold_min": 0.30,    # hold both grips this long to start talking
-    "flick_max": 0.25,        # a stick release within this is a flick
-    "chord_skew": 0.15,       # grip presses closer than this are a chord
-    "handsfree_max": 600.0,   # 10 minutes of hands-free, then stop
+    "tap_max": 0.30,             # a press shorter than this is a tap
+    "double_ms": 0.45,           # two taps within this are a double-tap
+    "talk_hold_min": 0.22,       # hold both grips this long to start talking
+    "chord_tap_follow": 0.15,    # 2nd grip must come up within this of the 1st
+                                 # release to count as a chord-tap (both tapped)
+    "flick_max": 0.25,           # a stick release within this is a flick
+    "handsfree_max": 600.0,      # 10 minutes of hands-free, then stop
 }
 
 
@@ -72,6 +73,10 @@ class GestureEngine:
         self._pressed_at = {}       # (kind, side) -> start time
         self._chord_started = None  # time both grips were first down together
         self._trail = set()         # sides whose release is part of a broken chord
+        self._pending_chord_tap = None  # (time, other_side): first grip of a
+                                        # short chord released; waiting to see if
+                                        # the other grip comes up too (chord-tap)
+                                        # or lingers (a hold, so do nothing)
         self._talking_hold = False
         self._handsfree = False
         self._handsfree_since = 0.0
@@ -131,14 +136,30 @@ class GestureEngine:
                 self._emit(TALK_STOP)
                 self._clear_tap_windows()
             elif other_down and duration <= self.timings["tap_max"]:
-                self._chord_tap(t)
+                # Both grips were briefly down. Don't call this a chord-tap yet:
+                # a hands-free double-tap releases both grips together, while a
+                # hold (that just missed talk_hold_min) leaves the other grip
+                # down. Defer the decision until the other grip comes up.
+                self._pending_chord_tap = (t, other)
+                self._trail.add(other)
             else:
                 self._clear_tap_windows()
-            if other_down:
-                self._trail.add(other)  # its release is just the chord's tail
+                if other_down:
+                    self._trail.add(other)
             return
 
-        # Not a live chord: a lone press, or the tail of a broken one.
+        # Not a live chord: a lone press, the tail of a broken one, or the
+        # second half of a deferred chord-tap.
+        if self._pending_chord_tap is not None:
+            pend_t, pend_other = self._pending_chord_tap
+            self._pending_chord_tap = None
+            if side == pend_other and t - pend_t <= self.timings["chord_tap_follow"]:
+                self._trail.discard(side)
+                self._chord_tap(pend_t)
+                return
+            # The other grip lingered — this was a hold, not a tap. Do nothing.
+            self._clear_tap_windows()
+            return
         if side in self._trail:
             self._trail.discard(side)
             return
@@ -155,6 +176,13 @@ class GestureEngine:
                 self._handsfree = False
                 self._handsfree_since = 0.0
                 self._emit(TALK_STOP)
+        # A deferred chord-tap that never got confirmed (the other grip stayed
+        # down) is a hold/aborted tap, not a gesture — let it expire.
+        if self._pending_chord_tap is not None:
+            pend_t, _ = self._pending_chord_tap
+            if t - pend_t > self.timings["chord_tap_follow"]:
+                self._pending_chord_tap = None
+                self._clear_tap_windows()
         # expire old tap windows
         for attr in ("_last_left_tap", "_last_right_tap", "_last_chord_tap"):
             last = getattr(self, attr)

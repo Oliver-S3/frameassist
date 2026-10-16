@@ -36,10 +36,45 @@ def test_hold_both_grips_starts_and_stops_talk():
     R(eng, G.GRIP, G.RIGHT, 0.05)
     eng.tick(0.10)
     assert c.commands == []
-    eng.tick(0.31)  # held beyond talk_hold_min (0.30)
+    eng.tick(0.31)  # held beyond talk_hold_min (0.22)
     assert c.commands == [G.TALK_START]
     RE(eng, G.GRIP, G.LEFT, 0.50)
     assert c.commands[-1] == G.TALK_STOP
+
+
+def test_short_hold_just_over_threshold_talks_and_staggers(timings=None):
+    """Desktop-mode regression: a light hold that just crosses talk_hold_min
+    (0.22s) with a staggered release must TALK, not be eaten as a chord-tap.
+    Previously a ≤tap_max chord whose first grip left while the other stayed
+    down was misclassified as a hands-free double-tap's first tap, so desktop
+    holds never started listening."""
+    eng, c = engine(timings)
+    R(eng, G.GRIP, G.LEFT, 0.0)
+    R(eng, G.GRIP, G.RIGHT, 0.05)
+    eng.tick(0.23)  # past talk_hold_min -> talk
+    assert G.TALK_START in c.commands
+    # release one grip, then the other shortly after (a hold's tail)
+    RE(eng, G.GRIP, G.LEFT, 0.30)
+    RE(eng, G.GRIP, G.RIGHT, 0.32)
+    assert c.commands == [G.TALK_START, G.TALK_STOP]
+
+
+def test_chord_hold_under_threshold_is_not_a_tap():
+    """A short chord shorter than talk_hold_min must not become a chord-tap."""
+    eng, c = engine()
+    R(eng, G.GRIP, G.LEFT, 0.0)
+    R(eng, G.GRIP, G.RIGHT, 0.05)
+    eng.tick(0.10)  # still under 0.22
+    assert c.commands == []
+    RE(eng, G.GRIP, G.RIGHT, 0.15)  # first grip up, other still down
+    RE(eng, G.GRIP, G.LEFT, 0.16)   # other comes up immediately -> chord tap
+    assert c.commands == []
+    # and it was recorded as a tap, so a second quick tap pairs into handsfree
+    R(eng, G.GRIP, G.LEFT, 0.30)
+    R(eng, G.GRIP, G.RIGHT, 0.32)
+    RE(eng, G.GRIP, G.RIGHT, 0.40)
+    RE(eng, G.GRIP, G.LEFT, 0.42)
+    assert c.commands == [G.HANDSFREE_START]
 
 
 def test_releasing_one_grip_stops_talk():

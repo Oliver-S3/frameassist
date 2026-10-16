@@ -1,8 +1,7 @@
 # Third-party notices
 
-FrameAssist is an independent implementation inspired by the public GripSpeak
-(https://gripspeak.itch.io/gripspeak). It does not contain or derive from
-GripSpeak's code. The Steam Frame integration *mechanisms* below are reused
+FrameAssist is an independent implementation. It does not contain or derive from
+any copywrited code. The Steam Frame integration *mechanisms* below are reused
 (and where necessary adapted) from open-source projects, under their licenses.
 
 ## frame-voice (fuelCell Voice Typing)
@@ -43,14 +42,8 @@ the MIT license. The implementation, gesture engine, and engineering are
 original to FrameAssist; its interaction model (hold both grips to talk,
 double-tap for hands-free, grip double-taps for copy/paste, stick flicks for
 Enter/Escape, word learning, optional AI polish) is an original reimplementation
-of the interaction model popularized by GripSpeak — the design language is
+of the interaction model common to this type of platform — the design language is
 inspired by it, the code is not copied from it (see below).
-
-## GripSpeak (itch.io)
-
-- Project: https://gripspeak.itch.io/gripspeak
-- Status: commercial; no code is reused. It is the interaction-model reference
-  named by the user when requesting this project.
 
 ## faster-whisper
 
