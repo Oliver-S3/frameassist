@@ -34,6 +34,12 @@ frame-voice, an open-source voice-typing app for the Steam Frame:
   window ignores typed keys;
 - local speech-to-text with faster-whisper (int8 on CPU), VAD filtering, a
   "phantom" transcript filter, and a user word list passed as hotwords;
+- reading controller buttons in any context (the Frame desktop/UI included,
+  where SteamVR Input won't route to an overlay app without a game) from
+  SteamVR's own controller binding page: a minimal RFC 6455 client of
+  `127.0.0.1:27062` (adapted from `frame-voice/vrws.py`, itself adapted from
+  Frametop's `input/vrws.py`, MIT Copyright (c) 2026 DeeJanuz) — FrameAssist
+  follows both controllers' grips and sticks, not just the right hand;
 - an installer (`install.sh`) that provisions the udev `uinput` rule and keeps
   it across SteamOS atomic updates.
 
@@ -49,6 +55,14 @@ inspired by it, the code is not copied from it (see below).
 
 - Project: https://github.com/SYSTRAN/faster-whisper
 - License: MIT. Used as a runtime dependency.
+
+## Frametop (controller web-socket reader)
+
+- Project: https://github.com/DeeJanuz/frametop
+- License: MIT. Copyright (c) 2026 DeeJanuz.
+- Adapted (via frame-voice) for the read-only controller-button reader
+  (`frameassist/vrws.py`): SteamVR's own binding-page web socket on
+  `127.0.0.1:27062`, which reports Frame controller buttons in any context.
 
 ## PySide6 / openvr
 

@@ -110,6 +110,11 @@ class SteamVR:
         self._prev_held = set()
         self.vr = None
         self.badge = None
+        # Read-only controller buttons from SteamVR's own web-socket stream
+        # (vrws.py). It reports grips/sticks in any context — including the
+        # Frame's desktop/UI, where SteamVR Input won't route overlay-global
+        # buttons without a game running. Started with the SteamVR session.
+        self.reader = None
         self.reset()
 
     def reset(self):
@@ -245,8 +250,7 @@ class SteamVR:
         vrinput = openvr.VRInput()
         vrinput.setActionManifestPath(str(HERE / "actions.json"))
         self.sets = {b: vrinput.getActionSetHandle(f"/actions/{b}") for b in BUTTONS}
-        self.actions = {b: vrinput.getActionHandle(f"/actions/{b}/in/press") for b in BUTTONS}
-        # We need to win the overlay-global priority band against Steam's own
+        self.actions = {b: vrinput.getActionHandle(f"/actions/{b}/in/press") for b in BUTTONS}        # We need to win the overlay-global priority band against Steam's own
         # dashboard overlay. On the Frame the band is
         # k_nActionSetOverlayGlobalPriorityMin(0x01000000)..Max(0x01ffffff) and
         # asking at Min+0x100 loses to the Frame's own UI, so grips worked only
@@ -258,6 +262,13 @@ class SteamVR:
         self.badge = Badge(openvr)
         self.connected = True
         self._connected_at = self.clock()
+        try:
+            from .vrws import ButtonReader
+            self.reader = ButtonReader()
+            self.reader.start()
+        except Exception as err:
+            log.info("reading buttons from the SteamVR web socket failed: %s", err)
+            self.reader = None
         log.info("steamvr connected; action manifest %s", HERE / "actions.json")
 
     def _events(self, openvr):
@@ -387,6 +398,14 @@ class SteamVR:
             self.bound[button] = new_active
             if new_active and data.bState:
                 buttons.add(button)
+
+        # Also feed the gesture engine from SteamVR's own read-only web-socket
+        # stream. It reports the same grips/sticks in any context — the desktop
+        # and Frame UI included — which is where SteamVR Input won't route
+        # overlay-global buttons (that's why grips only worked in games before).
+        # Still give the buttons back to a running game unless asked not to.
+        if self.reader and not self.paused:
+            buttons |= self.reader.buttons()
 
         self._emit(buttons, now)
         self._report(now)
