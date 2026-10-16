@@ -39,6 +39,12 @@ HOME_KEYS = ("steam.app.250820",)  # SteamVR Home
 
 
 def is_home(app_key):
+    # Treat the Steam Frame's own UI as "home", not a game: vrlink.client is the
+    # Frame's VR compositor/UI scene app that shows whenever you're just using
+    # the Frame, so treating it as a game paused all button reading and grips
+    # could never fire outside a real game with the Steam menu open.
+    if app_key == "vrlink.client" or app_key.startswith("vrlink."):
+        return True
     return app_key in HOME_KEYS or app_key.startswith(
         ("system.", "openvr.tool.", "openvr.component."))
 

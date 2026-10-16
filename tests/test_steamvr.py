@@ -253,3 +253,17 @@ def test_engine_copy_pastes(monkeypatch):
     e._typist = typ
     e.hotkey({"cmd": "enter"})
     assert typ.shortcuts == ["paste", "enter"]
+
+
+def test_frame_ui_vrlink_is_home_not_game():
+    """The Steam Frame's own UI (vrlink.client) shows as the scene app while the
+    user is just using the Frame. Treating it as a game paused all button
+    reading, so grips never fired outside a real game with the Steam menu open.
+    It must be classified as home so shortcut reading stays active."""
+    from frameassist.steamvr import is_home
+    assert is_home("vrlink.client")
+    assert is_home("vrlink.bigscreen")
+    assert is_home("steam.app.250820")       # SteamVR Home
+    assert is_home("system.generated.gamescope")
+    # Real steam games stay games.
+    assert not is_home("steam.app.1245620")
