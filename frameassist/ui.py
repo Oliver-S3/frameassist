@@ -119,7 +119,7 @@ class SettingsDialog(QDialog):
         self.after = QComboBox()
         self.after.addItem("Type into the text box", "type")
         self.after.addItem("Only copy to the clipboard", "clipboard")
-        self.after.addItem("Copy + paste (works with streamed games/apps)", "paste")
+        self.after.addItem("Copy, then paste into the focused window", "paste")
         self.after.setCurrentIndex(
             {"type": 0, "clipboard": 1, "paste": 2}.get(cfg.get("after_talking", "type"), 0))
         form.addRow("After talking", self.after)

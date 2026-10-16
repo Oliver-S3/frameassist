@@ -1,8 +1,8 @@
 # FrameAssist
 
 **Voice typing for the Steam Frame.** Hold both grips, talk, let go — your
-words land in whatever text box you're in: Steam chat, the browser, the
-terminal, desktop apps.
+words land in whatever text box is focused on the Frame: Steam chat, the
+browser, the terminal, desktop apps.
 
 No on-screen keyboard, no Bluetooth keyboard, no cloud. Speech recognition
 runs on the headset itself, with no account and nothing sent online. (There's
@@ -32,6 +32,20 @@ on **Keep shortcuts on during VR games** in Settings to override.
 
 A single **"Listening…" / "Typing…"** badge floats below your view while you
 talk, so you don't need the window open.
+
+## Known limits
+
+- **Typing reaches the Frame's own focused window** — Steam chat, the browser,
+  the terminal, desktop apps on the Frame. That's the supported, tested use.
+- **Apps running on a PC and streamed to the Frame (Steam Remote Play/vrlink)
+  are outside this boundary**: Steam only forwards text there through *Steam's own
+  on-screen keyboard*, and FrameAssist can't inject into it programmatically.
+  This is a platform limitation shared by the other open-source Frame voice
+  typers (frame-voice, whisper-frame, FrameYap) — none of them types into a
+  streamed app either.
+- US keyboard layout; accented characters are normalized to ASCII equivalents.
+- Speech transcription runs on the headset's CPU/GPU; a heavy VR game may
+  stutter briefly while a clip transcribes.
 
 ## Install (about 5 minutes, once)
 

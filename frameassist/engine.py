@@ -191,13 +191,12 @@ class Engine:
                 if self.cfg.get("press_enter"):
                     self._need_typist().shortcut("enter")
             elif mode == "paste":
-                # The text is already on the clipboard (set above). Send Ctrl+V:
-                # Steam Remote Play syncs the clipboard to the host and forwards
-                # Ctrl+V as an ordinary hotkey, so this is how a dictation gets
-                # into a *streamed* (remote) text box — the window we're looking
-                # at — rather than only the Frame's own focused window, which is
-                # what per-character typing reaches. Give the clipboard sync a
-                # beat before pasting.
+                # The text is already on the clipboard (set above). Send Ctrl+V
+                # so it lands in whatever text box has focus on the Frame.
+                # (Note: this follows the Frame's own focused window, like
+                # typing does — it is not forwarded into apps streamed from a
+                # PC, which Steam Remote Play/vrlink only delivers through
+                # Steam's own on-screen keyboard.)
                 import time as _t
                 _t.sleep(0.35)
                 self._need_typist().shortcut("paste")
