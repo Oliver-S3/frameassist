@@ -71,11 +71,25 @@ def enabled():
     return out is not None and out.stdout.strip() == "enabled"
 
 
+def is_active():
+    """True when the background service is currently running."""
+    out = systemctl("is-active", UNIT)
+    return out is not None and out.stdout.strip() == "active"
+
+
 def start_now():
     """Start the background copy now, if it's set up. True if it started."""
     if not enabled():
         return False
     out = systemctl("start", UNIT)
+    return out is not None and out.returncode == 0
+
+
+def stop_now():
+    """Stop the background copy now. True if it stopped (or wasn't running)."""
+    if not is_active():
+        return True
+    out = systemctl("stop", UNIT)
     return out is not None and out.returncode == 0
 
 
@@ -102,3 +116,28 @@ def set_enabled(on, command=None):
         log.warning("systemctl %s %s failed: %s", "enable" if on else "disable", UNIT,
                     out.stderr.strip()[:200] if out else "no systemctl")
     return ok
+
+
+def power(on, command=None):
+    """Turn the whole app off (stop now + disable autostart) or back on
+    (enable autostart + start now). Returns (ok, summary) where summary is a
+    short line the UI can show. Idempotent: turning off when already off is a
+    success with an explanatory message."""
+    if on:
+        kept = set_enabled(True, command=command)
+        started = start_now()
+        if kept and started:
+            return True, "Running now and will start with SteamVR next time."
+        if kept:
+            return True, "Will start with SteamVR next time (start it when you like)."
+        return False, "Couldn't set up starting with SteamVR."
+    # Turning off: stop now and don't start again with SteamVR.
+    disabled = set_enabled(False)
+    stopped = stop_now()
+    if disabled and stopped:
+        return True, "Off. FrameAssist won't start with SteamVR."
+    if disabled:
+        return True, "Won't start with SteamVR (the running copy will stop on its own)."
+    if stopped:
+        return True, "Stopped for now (may start again with SteamVR — re-run the installer)."
+    return False, "Couldn't turn it off; see the log."

@@ -9,10 +9,11 @@ and the window ignores typed keys so it can never be typed into.
 import sys
 
 from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QPainter, QPen
+from PySide6.QtGui import QAction, QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QPushButton, QVBoxLayout, QWidget,
+    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu, QPushButton,
+    QVBoxLayout, QWidget,
 )
 
 from .config import MODELS, load, save
@@ -184,7 +185,7 @@ class MainWindow(QMainWindow):
     transcript_sig = Signal(str)
 
     def __init__(self, cfg, engine, on_settings=None, on_quit=None, link=None,
-                 on_turn_on=None):
+                 on_turn_on=None, on_power=None):
         super().__init__()
         self.cfg = cfg
         self.engine = engine
@@ -194,11 +195,19 @@ class MainWindow(QMainWindow):
         # Called when the user taps "Turn on" for the SteamVR global-input
         # setting. Set by app.py to vr.enable_global_input.
         self.on_turn_on = on_turn_on
+        # Called with True/False when the user powers the app off/on from the
+        # app menu (stop now + don't start with SteamVR, or the reverse). Set
+        # by app.py to autostart.power. Returns (ok, summary).
+        self.on_power = on_power
         # Set by app.py: a callable()-> overlay that renders calibration charts
         # in VR when SteamVR is available, else None.
         self.calibrate_overlay = None
         self.setWindowTitle("FrameAssist")
         self.setMinimumSize(360, 460)
+
+        # App menu: turn FrameAssist fully off (stop now, don't start with
+        # SteamVR) or back on, without editing system files by hand.
+        self._build_app_menu()
 
         central = QWidget()
         root = QVBoxLayout(central)
@@ -330,6 +339,63 @@ class MainWindow(QMainWindow):
             if self.on_settings:
                 self.on_settings(self.cfg)
             self.status_label.setText("Settings saved.")
+
+    def _build_app_menu(self):
+        """The app menu: power the whole thing off (stop now + no auto-start)
+        or back on. Useful when tuning game performance or just not using it."""
+        bar = self.menuBar()
+        menu = bar.addMenu("App")
+
+        self.power_off_action = QAction("Turn off (stop now & don't start with SteamVR)", self)
+        self.power_off_action.triggered.connect(self._power_off)
+        menu.addAction(self.power_off_action)
+
+        self.power_on_action = QAction("Turn on (start now & start with SteamVR)", self)
+        self.power_on_action.triggered.connect(self._power_on)
+        menu.addAction(self.power_on_action)
+
+        menu.addSeparator()
+        quit_action = QAction("Quit (window only, shortcuts keep running)", self)
+        quit_action.triggered.connect(lambda: self.close())
+        menu.addAction(quit_action)
+
+        # Reflect the current state when the menu opens.
+        menu.aboutToShow.connect(self._refresh_power_menu)
+
+    def _refresh_power_menu(self):
+        try:
+            from . import autostart
+            on = autostart.enabled()
+        except Exception:
+            on = self.cfg.get("autostart", True)
+        self.power_off_action.setEnabled(on)
+        self.power_on_action.setEnabled(not on)
+
+    def _power_off(self):
+        if not self.on_power:
+            return
+        reply = QMessageBox.question(
+            self, "Turn off FrameAssist?",
+            "Stop FrameAssist now and don't start it with SteamVR again?\n\n"
+            "Run “frameassist --register” (or reopen Settings → Start automatically) "
+            "to turn it back on.",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        ok, summary = self.on_power(False)
+        self.status_label.setText(summary)
+        if ok:
+            # Fully off: nothing is listening anymore, so close the window too.
+            self.close()
+        else:
+            self.status_label.setText(summary)
+
+    def _power_on(self):
+        if not self.on_power:
+            return
+        ok, summary = self.on_power(True)
+        self.status_label.setText(summary)
+        self._refresh_power_menu()
 
     def _open_calibrate(self):
         dialog = CalibrateDialog(self.engine, self, overlay_factory=self.calibrate_overlay)

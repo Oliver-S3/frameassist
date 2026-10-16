@@ -58,6 +58,14 @@ def run_window(cfg):
 
     def _on_settings_changed(new_cfg):
         vr.set_options(in_games=new_cfg.get("in_games", False))
+        # Keep the Settings checkbox and the systemd autostart unit in sync:
+        # toggling "Start automatically with SteamVR" here also enables or
+        # disables the unit, matching the App-menu Turn off/Turn on behavior.
+        try:
+            from . import autostart
+            autostart.set_enabled(bool(new_cfg.get("autostart", True)))
+        except Exception:
+            pass
 
     def _on_quit():
         if link:
@@ -67,9 +75,16 @@ def run_window(cfg):
         engine.close()
         app.quit()
 
+    def _on_power(turn_on):
+        from . import autostart
+        ok, summary = autostart.power(turn_on)
+        # engine may no longer matter if off; reflect state only.
+        window.status_label.setText(summary)
+        return ok, summary
+
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
                         on_quit=_on_quit, link=link,
-                        on_turn_on=vr.enable_global_input)
+                        on_turn_on=vr.enable_global_input, on_power=_on_power)
 
     def _calibrate_overlay_factory():
         # Only build the VR overlay when SteamVR is actually connected.
