@@ -399,6 +399,9 @@ class SteamVR:
         eng = self.engine
         if eng is None:
             return
+        if held != self._prev_held:
+            log.info("steamvr: held buttons became %s",
+                     ",".join(sorted(held)) or "none")
         _SIDE = {"l": "left", "r": "right"}
         for button in sorted(BUTTONS):
             down = button in held
