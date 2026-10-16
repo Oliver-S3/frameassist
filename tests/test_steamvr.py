@@ -80,6 +80,22 @@ def test_hold_both_grips_reaches_engine(vr):
     assert got[-1] == "talk_stop"
 
 
+def test_global_priority_asks_near_top_of_overlay_global_band(vr):
+    """The Frame's own UI/desktop pre-empts overlay apps that ask at the bottom
+    of the overlay-global band (Min+0x100), so grips only worked in games.
+    We must ask near the top of the band (still below the reserved range)
+    to stay active while just using the Frame."""
+    from frameassist.steamvr import SteamVR
+    svr = SteamVR(clock=Clock())
+    svr.vr = vr
+    svr.open(vr)
+    band_lo = vr.k_nActionSetOverlayGlobalPriorityMin
+    band_hi = vr.k_nActionSetOverlayGlobalPriorityMax
+    assert band_lo <= svr.global_priority <= band_hi
+    # near the top: within the top 0.1% of the band, not the bottom
+    assert (band_hi - svr.global_priority) <= max(1, (band_hi - band_lo) // 1024)
+
+
 def test_double_tap_chord_toggles_handsfree(vr):
     clock = Clock()
     svr, got = _make_vr(clock)

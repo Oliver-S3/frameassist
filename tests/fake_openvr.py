@@ -172,6 +172,7 @@ class _OpenVr:
         self.VRApplication_Background = "Background"
         self.VRApplication_Overlay = "Overlay"
         self.k_nActionSetOverlayGlobalPriorityMin = 1
+        self.k_nActionSetOverlayGlobalPriorityMax = 1000000
         self.k_ulInvalidInputValueHandle = 0
         self.k_unMaxTrackedDeviceCount = 64
         self.k_unTrackedDeviceIndex_Hmd = 0

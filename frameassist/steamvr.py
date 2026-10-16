@@ -246,7 +246,14 @@ class SteamVR:
         vrinput.setActionManifestPath(str(HERE / "actions.json"))
         self.sets = {b: vrinput.getActionSetHandle(f"/actions/{b}") for b in BUTTONS}
         self.actions = {b: vrinput.getActionHandle(f"/actions/{b}/in/press") for b in BUTTONS}
-        self.global_priority = openvr.k_nActionSetOverlayGlobalPriorityMin + 0x100
+        # We need to win the overlay-global priority band against Steam's own
+        # dashboard overlay. On the Frame the band is
+        # k_nActionSetOverlayGlobalPriorityMin(0x01000000)..Max(0x01ffffff) and
+        # asking at Min+0x100 loses to the Frame's own UI, so grips worked only
+        # in games (where nothing else is in the band). Ask near the top of the
+        # overlay-global band (still below the reserved 0x02000000 range) so the
+        # Frame's own UI/desktop doesn't pre-empt us.
+        self.global_priority = openvr.k_nActionSetOverlayGlobalPriorityMax - 0x100
         self.event = openvr.VREvent_t()
         self.badge = Badge(openvr)
         self.connected = True
