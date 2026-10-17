@@ -259,6 +259,16 @@ class MainWindow(QMainWindow):
         row.addWidget(self.settings_btn)
         root.addLayout(row)
 
+        # A clearly visible stop control so the user can turn FrameAssist fully
+        # off before a game (or when not using it) without hunting in a menu.
+        self.stop_btn = QPushButton("Stop FrameAssist (before a game)")
+        self.stop_btn.setStyleSheet(
+            f"QPushButton {{ background: {RED}; color: #fff; border: none; "
+            f"border-radius: 10px; padding: 10px 16px; font-weight: 600; }} "
+            f"QPushButton:hover {{ background: #ff6b78; }}")
+        self.stop_btn.clicked.connect(self._power_off)
+        root.addWidget(self.stop_btn)
+
         root.addStretch(1)
         footer = QLabel("Hold both grips to talk · Double-tap both for hands-free · "
                         "Flick right stick to send · Flick left for Escape")
