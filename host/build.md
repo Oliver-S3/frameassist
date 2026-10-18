@@ -238,3 +238,11 @@ OV/EV cert + a trusted timestamp.
 >
 > Signing does **not** change the elevation requirement on locked-down /
 > sandboxed sessions — that filter is about process trust, not publisher trust.
+>
+> **Version metadata is embedded in every build** (CompanyName `Oliver Meissner`,
+> ProductName `FrameAssistHost`, FileDescription, FileVersion read from
+> `version.json`, via `host/_versioninfo.py`, wired into both specs). A real app
+> always carries this; a signed binary with *no* version info is the exact
+> profile SmartScreen/AV heuristics flag as "packed", and it's what made the
+> helper look less legitimate than the Quicksilver (electron-builder) exe until
+> it was added.

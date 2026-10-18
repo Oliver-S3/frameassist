@@ -20,6 +20,11 @@ CI keeps the one-file build (`host/FrameAssistHost.spec`).
 import os
 import sys
 
+sys.path.insert(0, SPECPATH)  # resolve host/_versioninfo.py in this build
+from _versioninfo import version_info  # noqa: E402
+_repo_root = os.path.dirname(SPECPATH)
+
+
 def _find_ffi_dll():
     """Bundle conda Python's libffi when present (see FrameAssistHost.spec)."""
     candidates = (
@@ -78,6 +83,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version=version_info(_repo_root),
 )
 
 coll = COLLECT(
