@@ -209,10 +209,17 @@ OV/EV cert + a trusted timestamp.
    ```
 
    Signs `dist\FrameAssistHost.exe` (one-file) and
-   `dist\FrameAssistHost\FrameAssistHost.exe` (onedir) with the p12.
-   Timestamping via a public server is best-effort (a self-signed chain is
-   usually refused) — if it fails the exes are signed without a timestamp and
-   they expire when the cert does (10 years; re-sign before then).
+   `dist\FrameAssistHost\FrameAssistHost.exe` (onedir) with the p12, and
+   **dual-signs** them: a SHA-256 primary signature plus an appended SHA-1
+   signature (the same profile electron-builder/Quicksilver ships — a
+   SHA-256-only signature is what SmartScreen classifies as an "unrecognized
+   app"). Check both with `signtool verify /pa /all /v <exe>` (`/all` is
+   required; without it you only see the primary signature). The primary also
+   gets a best-effort RFC3161 timestamp.
+   
+   > **Freeze the artifact after signing.** Re-signing changes the file's
+   > SHA-256, which resets SmartScreen's "Run anyway" memory. Build once, sign
+   > once, then distribute that exact file.
 
 3. **Trust it once per PC** (recipients):
 
