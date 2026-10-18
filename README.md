@@ -30,6 +30,11 @@ Every dictation is also copied to the clipboard, so you can paste it again
 anywhere. In games, FrameAssist's buttons rest and the game keeps them — turn
 on **Keep shortcuts on during VR games** in Settings to override.
 
+FrameAssist treats the Frame's own desktop and a streamed PC (`vrlink`) as
+*home*, not a game — buttons stay live there, so dictating into a streamed PC
+always works. The "rest in games" behavior applies to a real game scene
+launched with its own SteamVR app key.
+
 A single **"Listening…" / "Typing…"** badge floats below your view while you
 talk, so you don't need the window open.
 

@@ -338,6 +338,13 @@ class Background:
     def _reload_settings(self):
         new = config_mod.load()
         self.cfg.update(new)
+        # The shortcut-taking copy also has a SteamVR instance whose "in_games"
+        # (keep shortcuts on during VR games) is fixed at construction; push the
+        # freshly read value so a Settings toggle actually takes effect here too.
+        try:
+            self.vr.set_options(in_games=bool(new.get("in_games", False)))
+        except Exception:
+            pass
 
     def _on_state(self, state, message):
         self.vr.show_state(state, message)
