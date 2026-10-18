@@ -82,6 +82,13 @@ Two builds are published from the same code — pick one:
   where an antivirus or a locked-down session blocks one-file apps (and starts
   faster). Extract the folder anywhere writable and run `FrameAssistHost.exe`.
 
+> **Signed builds.** Both builds are code-signed with a personal self-signed
+> certificate (see `host/signing/`). On a new PC, run
+> `host/signing/trust-FrameAssistHost.ps1` once (per-user, no admin) so Windows
+> stops showing SmartScreen's "Unknown publisher" — then the signed helper just
+> runs. That warning is not a virus: it only means Windows hadn't seen the
+> signer before.
+
 1. Download either build from the project's **Releases** page and run it on the
    PC. No Python or install step is needed.
 2. The first time it runs, Windows Firewall asks for permission. Tick

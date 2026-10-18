@@ -183,3 +183,49 @@ delivered on Windows; `Ctrl+C` prints `Stopping.` and exits 0.
 - The automated build lives in `.github/workflows/windows-build.yml`: it builds
   on `windows-latest` and uploads `FrameAssistHost.exe` as a downloadable
   **build artifact** (attach it to a GitHub release for end users).
+
+## Signing (optional but recommended)
+
+The helper exes can be code-signed with a personal **self-signed** certificate
+so Windows stops showing "Unknown publisher" once the signer is trusted. This
+silences SmartScreen **on machines that run the trust script**; it is not a
+CA-issued certificate, so general public distribution would still need a real
+OV/EV cert + a trusted timestamp.
+
+1. **Create the certificate** (one-time, from `host/signing/`):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File host\signing\make-cert.ps1
+   ```
+
+   Writes `FrameAssistHost.cer` (public — commit), `FrameAssistHost.p12`
+   (PRIVATE — gitignored), and `.signing-password.txt` (PRIVATE — gitignored).
+   A fresh 10-year code-signing cert (CN=FrameAssistHost) is created each run.
+
+2. **Sign the builds** (after `pyinstaller`):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File host\signing\sign.ps1
+   ```
+
+   Signs `dist\FrameAssistHost.exe` (one-file) and
+   `dist\FrameAssistHost\FrameAssistHost.exe` (onedir) with the p12.
+   Timestamping via a public server is best-effort (a self-signed chain is
+   usually refused) — if it fails the exes are signed without a timestamp and
+   they expire when the cert does (10 years; re-sign before then).
+
+3. **Trust it once per PC** (recipients):
+
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File host\signing\trust-FrameAssistHost.ps1
+   ```
+
+   Adds the cert to the user's Trusted Root + Trusted Publishers (per-user, no
+   admin, reversible with the same script + `-Remove`).
+
+> **Key hygiene:** never commit `FrameAssistHost.p12` or
+> `.signing-password.txt` — anyone holding both can sign binaries as you. They
+> are already gitignored (`host/signing/*.p12`, `host/signing/.signing-password.txt`).
+>
+> Signing does **not** change the elevation requirement on locked-down /
+> sandboxed sessions — that filter is about process trust, not publisher trust.
