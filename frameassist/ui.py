@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
+from . import __version__
 from .config import DEFAULTS, MODELS, load, save
 from .engine import ERROR, LISTENING, READY, WORKING
 
@@ -202,6 +203,10 @@ class SettingsDialog(QDialog):
         buttons.rejected.connect(self.reject)
         form.addRow(buttons)
 
+        version_label = QLabel(f"FrameAssist {__version__}")
+        version_label.setObjectName("muted")
+        form.addRow(version_label)
+
     def _check_update(self):
         from .update import run_self_update
         self.update_btn.setEnabled(False)
@@ -365,7 +370,8 @@ class MainWindow(QMainWindow):
 
         root.addStretch(1)
         footer = QLabel("Hold both grips to talk · Double-tap both for hands-free · "
-                        "Flick right stick to send · Flick left for Escape")
+                        "Quickly press the right stick to send · left for Escape · "
+                        f"v{__version__}")
         footer.setObjectName("muted")
         footer.setWordWrap(True)
         footer.setAlignment(Qt.AlignCenter)
