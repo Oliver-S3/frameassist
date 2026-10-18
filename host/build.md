@@ -136,12 +136,14 @@ pyi-archive_viewer -l dist\FrameAssistHost.exe | findstr ffi
 A build from a python.org interpreter statically links libffi and never needs it,
 so CI (`setup-python`) is unaffected.
 
-### Extracting beside the exe instead of %TEMP%
+### The one-file variant (optional, on demand)
 
-`dist\run-FrameAssistHost.cmd` sets `PYINSTALLER_TMPDIR` to a `_frameassist_runtime`
-folder next to the exe before launching, which sidesteps a broken/denied default
-`%TEMP%`. The exe folder must be writable; omit that line on real installs under
-`Program Files` and let the bootloader use the normal temp path.
+`host/FrameAssistHost.spec` builds a single `dist\FrameAssistHost.exe`, used when
+a genuinely single file is wanted (e.g. CI uploads it as a download artifact).
+Its bootloader extracts to `%TEMP%` on launch; if a machine/session denies that,
+a launcher `dist\run-FrameAssistHost.cmd` can point `PYINSTALLER_TMPDIR` at a
+`_frameassist_runtime` folder beside the exe instead. **The released `dist`
+folder ships only the onedir build; build the one-file explicitly when needed.**
 
 ### Preferred: the onedir build (no admin, no extraction)
 
@@ -151,7 +153,7 @@ launch, so it works even where a machine/session blocks the one-file
 bootloader's temp extraction (EDR/AV heuristics on one-file self-extraction,
 or a sandboxed desktop session). Verified to boot without elevation in a
 restricted session. Ship the folder as a zip; users extract anywhere writable
-and double-click `FrameAssistHost.exe`. CI keeps the one-file build.
+and double-click `FrameAssistHost.exe`. This is the build kept in `dist`.
 
 ### Elevation on locked-down / managed sessions
 
