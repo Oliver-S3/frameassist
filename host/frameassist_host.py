@@ -50,8 +50,15 @@ import os
 import socket
 import sys
 import threading
+import time
 
 DEFAULT_PORT = 8763
+
+# Pause between injected characters. SendInput floods lose key-ups and corrupt
+# text (dropped/auto-repeated characters) when characters are pumped as fast as
+# possible — 8-10 ms per UTF-16 unit matches the headset-side Typist pacing and
+# gives the focused app's input queue time to keep up. Only affects op=type.
+TYPE_CHAR_DELAY = 0.008
 
 # Ops this companion understands. The headset sends exactly these.
 OPS = frozenset({"type", "enter", "escape", "paste", "copy", "backspace", "ping"})
@@ -241,16 +248,22 @@ def _send_keyinput(user32, vk, scan, flags):
     inp.u.ki.dwFlags = flags
     inp.u.ki.time = 0
     inp.u.ki.dwExtraInfo = 0
-    user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+    sent = user32.SendInput(1, ctypes.byref(inp), ctypes.sizeof(inp))
+    if sent != 1:
+        print("[inject] SendInput returned %d for vk=%s scan=%s flags=%s "
+              "(0 = events were NOT injected!)" % (sent, vk, scan, flags), flush=True)
 
 
 def _type_unicode(user32, text):
     """Type ``text`` layout-independently: for each UTF-16 code unit send a
     KEYEVENTF_UNICODE keydown then its keyup. Accents, non-Latin scripts and
-    emoji all land verbatim — the US-keyboard-layout limit is gone here."""
+    emoji all land verbatim — the US-keyboard-layout limit is gone here.
+    Characters are paced (TYPE_CHAR_DELAY) so key-ups are not dropped and the
+    focused app does not drop/mangle text."""
     for unit in _utf16_units(text):
         _send_keyinput(user32, 0, unit, KEYEVENTF_UNICODE)
         _send_keyinput(user32, 0, unit, KEYEVENTF_UNICODE | KEYEVENTF_KEYUP)
+        time.sleep(TYPE_CHAR_DELAY)
 
 
 def _tap_vk(user32, vk, extended=False):
@@ -313,6 +326,16 @@ def inject(op, text):
     if op == "ping":
         return
     user32 = _user32()
+    # Diagnostic (kept in production): reveal what SendInput targets and whether
+    # the OS accepted the events. SendInput returns 0 when nothing was injected;
+    # the foreground title tells us which window the helper believes is active.
+    try:
+        fg = user32.GetForegroundWindow()
+        title = ctypes.create_unicode_buffer(512)
+        user32.GetWindowTextW(fg, title, 512)
+        print("[inject] op=%s foreground=%r hwnd=%s" % (op, title.value, fg), flush=True)
+    except Exception as exc:
+        print("[inject] foreground query failed: %s" % exc, flush=True)
     if op == "type":
         _type_unicode(user32, text)
     elif op == "enter":
