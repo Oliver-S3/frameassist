@@ -492,7 +492,9 @@ class SteamVR:
                 "bound": sorted(b for b, on in self.bound.items() if on),
                 "global_input": self.global_input, "global_rejected": self.global_rejected,
                 "in_game": self.in_game, "dashboard": self.dashboard, "paused": self.paused,
-                "in_games": self.in_games}, indent=2))
+                "in_games": self.in_games, "streaming": self.streaming,
+                "rest_while_streaming": self.rest_while_streaming,
+                "scene": self._scene_key}, indent=2))
         except OSError:
             pass
 

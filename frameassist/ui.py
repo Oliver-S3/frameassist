@@ -171,10 +171,10 @@ class SettingsDialog(QDialog):
         self.rest_stream = QCheckBox("Rest shortcuts while a PC is streamed in")
         self.rest_stream.setChecked(cfg.get("rest_while_streaming", False))
         self.rest_stream.setToolTip(
-            "Pauses the grip/stick shortcuts whenever a PC is being streamed into "
-            "the Frame (vrlink). The Frame can't tell a streamed GAME from the "
-            "streamed desktop, so use this for streamed-game sessions, and turn it "
-            "off to dictate into the streamed desktop.")
+            "Pauses the grip/stick shortcuts during streamed-PC sessions (vrlink), "
+            "so a streamed game keeps its buttons. While the Steam dashboard is "
+            "open — e.g. when you're just using the streamed desktop — the "
+            "shortcuts stay live and dictation still works.")
         form.addRow("Streamed PC", self.rest_stream)
 
         self.autostart = QCheckBox("Start automatically with SteamVR")
