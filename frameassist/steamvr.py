@@ -94,9 +94,11 @@ class SteamVR:
     BINDING_GRACE = 4.0
 
     def __init__(self, on_status=lambda text: None,
-                 in_games=False, autolaunch=True, clock=None):
+                 in_games=False, rest_while_streaming=False,
+                 autolaunch=True, clock=None):
         self.on_status = on_status
         self.in_games = in_games
+        self.rest_while_streaming = rest_while_streaming
         self.autolaunch = autolaunch
         self.clock = clock or time.monotonic
         self.connected = False
@@ -124,6 +126,7 @@ class SteamVR:
         self.global_input = None
         self.global_rejected = False
         self.in_game = False
+        self.streaming = False  # a vrlink (streamed PC/desktop) scene is active
         self.dashboard = False
         self.paused = False
         self.source = None
@@ -142,9 +145,11 @@ class SteamVR:
     def stop(self):
         self._stop = True
 
-    def set_options(self, in_games=None):
+    def set_options(self, in_games=None, rest_while_streaming=None):
         if in_games is not None:
             self.in_games = in_games
+        if rest_while_streaming is not None:
+            self.rest_while_streaming = rest_while_streaming
 
     def set_autolaunch(self, on):
         self.autolaunch = on
@@ -172,7 +177,8 @@ class SteamVR:
                 "bound": dict(self.bound), "taken": set(self.taken),
                 "controllers": list(self.controllers), "source": self.source,
                 "global_input": self.global_input, "paused": self.paused,
-                "in_game": self.in_game}
+                "in_game": self.in_game, "streaming": self.streaming,
+                "rest_while_streaming": self.rest_while_streaming}
 
     # -- thread ---------------------------------------------------------------
     def _set_status(self, status, summary):
@@ -329,6 +335,11 @@ class SteamVR:
             log.info("steamvr: scene app is now %s", f"{key} (pid {pid})" if pid else "none")
             self._scene_key = key
         self.in_game = bool(pid) and pid != os.getpid() and not is_home(self._scene_key)
+        # A vrlink scene means the Frame is showing a streamed PC/desktop (or its
+        # own integrated UI). We can't tell "streamed desktop" from "streamed
+        # game" from SteamVR here, so the rest_while_streaming opt-in pauses for
+        # all of it — gambler's choice the user controls.
+        self.streaming = bool(pid) and self._scene_key.startswith("vrlink.")
         try:
             dashboard = bool(openvr.VROverlay().isDashboardVisible())
         except Exception:
@@ -361,8 +372,12 @@ class SteamVR:
             self._next_slow = now + 1.0
 
         # Leave the buttons to a game unless asked not to. With the Steam menu
-        # open over a game, the buttons are ours again.
-        self.paused = self.in_game and not self.dashboard and not self.in_games
+        # open over a game, the buttons are ours again. Separately, the opt-in
+        # "rest while a PC is streamed in" pauses for any vrlink scene (games or
+        # desktop): the frame can't tell them apart, so the user decides.
+        game = self.in_game and not self.in_games
+        stream = self.rest_while_streaming and self.streaming
+        self.paused = (game or stream) and not self.dashboard
         take = set(BUTTONS)
         if self.paused:
             take = set()  # give the game back its buttons

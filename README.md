@@ -248,6 +248,7 @@ streamed-PC problem to the network/helper.
 | Nothing gets typed | Click the text box first, then hold both grips. If it still doesn't work, run `frameassist --check`. If "Can type into apps" says FIX, run the installer again and restart. |
 | Controller shortcuts do nothing | In Settings use **Test your buttons**. If it says a SteamVR setting is needed, tap **Turn on** (or SteamVR → Developer → *Enable global input from overlays*), then restart the headset. |
 | Shortcuts stop during a game | That's on purpose. Open the Steam menu, or turn on **Keep shortcuts on during VR games**. |
+| Voice triggers in a streamed PC game | The Frame can't tell a streamed *game* from the streamed *desktop* (`vrlink`), so auto-detection won't rest there. Turn on **Rest shortcuts while a PC is streamed in** in Settings for streamed-game sessions — and turn it off to dictate into the streamed desktop again. |
 | "Didn't catch that" | Speak a little closer/longer, or pick **Most accurate** in Settings. |
 | Words come out wrong | Pick **Most accurate**, talk close to the mic. For names, add them to **My words**. |
 | Wrong characters | FrameAssist types as a US keyboard layout. |

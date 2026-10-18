@@ -96,6 +96,36 @@ def test_global_priority_asks_near_top_of_overlay_global_band(vr):
     assert (band_hi - svr.global_priority) <= max(1, (band_hi - band_lo) // 1024)
 
 
+def test_rest_while_streaming_pauses_on_vrlink_scene(vr):
+    """The opt-in 'rest while a PC is streamed in' pauses for a vrlink scene,
+    is a hard rest (not overridden by in_games), and lifts when the dashboard
+    is open. Default (off) keeps the streamed desktop dictatable."""
+    clock = Clock()
+    svr, _ = _make_vr(clock)
+    svr.open(vr)
+    apps = vr.VRApplications()
+    apps.scene_pid = 4001
+    apps.scene_key = "vrlink.client"
+    overlay = vr.VROverlay()
+
+    svr.step()                      # slow check picks up the vrlink scene
+    assert svr.streaming is True
+    assert svr.paused is False      # default: off -> idle, dictation stays live
+
+    svr.set_options(rest_while_streaming=True)
+    svr.step()
+    assert svr.paused is True       # opt-in -> rests while streamed
+
+    svr.set_options(in_games=True)  # keep-shortcuts-in-games does NOT lift this
+    svr.step()
+    assert svr.paused is True
+
+    overlay.dashboard = True        # the Steam menu hands the buttons back
+    clock.advance(2.0)              # dashboard refreshes on the 1s slow check
+    svr.step()
+    assert svr.paused is False
+
+
 def test_double_tap_chord_toggles_handsfree(vr):
     clock = Clock()
     svr, got = _make_vr(clock)

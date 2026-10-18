@@ -22,6 +22,7 @@ DEFAULTS = {
     "add_space": True,
     "press_enter": False,
     "in_games": False,
+    "rest_while_streaming": False,
     "autostart": True,
     "after_talking": "type",  # "type" | "clipboard" | "paste"
     "ai_polish": False,

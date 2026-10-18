@@ -70,6 +70,8 @@ class _Apps:
     def __init__(self):
         self.manifest = None
         self.autolaunch = None
+        self.scene_pid = 0
+        self.scene_key = ""
 
     def addApplicationManifest(self, path, replace):
         self.manifest = path
@@ -81,10 +83,10 @@ class _Apps:
         self.autolaunch = (key, on)
 
     def getCurrentSceneProcessId(self):
-        return 0
+        return self.scene_pid
 
     def getApplicationKeyByProcessId(self, pid):
-        return ""
+        return self.scene_key
 
 
 class _Settings:
@@ -98,6 +100,7 @@ class _Settings:
 class _Overlay:
     def __init__(self):
         self.handles = set()
+        self.dashboard = False
 
     def createOverlay(self, key, name):
         self.handles.add(key)
@@ -119,7 +122,7 @@ class _Overlay:
         pass
 
     def isDashboardVisible(self):
-        return False
+        return self.dashboard
 
 
 class _ActiveActionSet:

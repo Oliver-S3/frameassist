@@ -168,6 +168,15 @@ class SettingsDialog(QDialog):
         self.in_games.setChecked(cfg.get("in_games", False))
         form.addRow("Buttons", self.in_games)
 
+        self.rest_stream = QCheckBox("Rest shortcuts while a PC is streamed in")
+        self.rest_stream.setChecked(cfg.get("rest_while_streaming", False))
+        self.rest_stream.setToolTip(
+            "Pauses the grip/stick shortcuts whenever a PC is being streamed into "
+            "the Frame (vrlink). The Frame can't tell a streamed GAME from the "
+            "streamed desktop, so use this for streamed-game sessions, and turn it "
+            "off to dictate into the streamed desktop.")
+        form.addRow("Streamed PC", self.rest_stream)
+
         self.autostart = QCheckBox("Start automatically with SteamVR")
         self.autostart.setChecked(cfg.get("autostart", True))
         form.addRow("", self.autostart)
@@ -266,6 +275,7 @@ class SettingsDialog(QDialog):
             "press_enter": self.press_enter.isChecked(),
             "after_talking": self.after.currentData(),
             "in_games": self.in_games.isChecked(),
+            "rest_while_streaming": self.rest_stream.isChecked(),
             "autostart": self.autostart.isChecked(),
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),

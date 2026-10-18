@@ -290,6 +290,7 @@ class Background:
         self.engine = engine_cls(cfg, on_state=self._on_state,
                                  copy_clipboard=self.copy_clipboard)
         self.vr = vr_cls(in_games=cfg.get("in_games", False),
+                         rest_while_streaming=cfg.get("rest_while_streaming", False),
                          autolaunch=cfg.get("autostart", True))
         self.vr.set_gesture_engine(self.engine_gestures())
         self.vr.hold = True
@@ -342,7 +343,9 @@ class Background:
         # (keep shortcuts on during VR games) is fixed at construction; push the
         # freshly read value so a Settings toggle actually takes effect here too.
         try:
-            self.vr.set_options(in_games=bool(new.get("in_games", False)))
+            self.vr.set_options(
+                in_games=bool(new.get("in_games", False)),
+                rest_while_streaming=bool(new.get("rest_while_streaming", False)))
         except Exception:
             pass
 
