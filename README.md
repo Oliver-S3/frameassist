@@ -69,8 +69,16 @@ crosses your LAN, and it's authenticated with a pairing code.
 `FrameAssistHost.exe` is a **separate download** — it is *not* part of the Frame
 install (see [Optional install](#optional-install-what-is-and-is-not-optional)).
 
-1. Download **`FrameAssistHost.exe`** from the project's **Releases** page and
-   run it on the PC. No Python or install step is needed.
+Two builds are published from the same code — pick one:
+- **`FrameAssistHost.exe`** (single file) — the classic one-file build; a plain
+  double-click works on normal Windows PCs.
+- **`FrameAssistHost/`** (a folder, `_internal` DLLs beside the exe) —
+  **recommended**: it runs in place with no self-extraction, so it also works
+  where an antivirus or a locked-down session blocks one-file apps (and starts
+  faster). Extract the folder anywhere writable and run `FrameAssistHost.exe`.
+
+1. Download either build from the project's **Releases** page and run it on the
+   PC. No Python or install step is needed.
 2. The first time it runs, Windows Firewall asks for permission. Tick
    **"Allow access on Private networks"** (leave **Public** unchecked) and click
    **Allow access** — it opens a port on your LAN so the Frame can reach it.
@@ -160,16 +168,33 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
 ## Install (about 5 minutes, once)
 
 1. **Open the desktop on your Frame** (switch to Linux desktop / KDE) and open **Konsole**.
-2. **Copy and paste this line, then press Enter:**
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/YOU/frameassist/main/install.sh | bash && exec bash
-   ```
+2. **Copy and paste one of these lines, then press Enter:**
+   - **One-line install** (once the project is published on GitHub — the URL
+     below is a placeholder):
+     ```bash
+     curl -fsSL https://raw.githubusercontent.com/YOU/frameassist/main/install.sh | bash && exec bash
+     ```
+   - **From a source checkout** (e.g. while the project still lives on your own
+     Git server — clone it onto the Frame first):
+     ```bash
+     git clone http://YOUR-GIT-HOST/YOU/frameassist && cd frameassist && ./install.sh
+     ```
    The installer shows 5 steps and tells you when it's done. Running it again
    updates the app.
    > If it asks for a password: voice typing needs permission to act like a
    > keyboard. No password yet? Press `Ctrl+C`, type `passwd`, set a password,
    > then run the line again.
-3. **Open FrameAssist** from your apps. If the window says the shortcuts need a
+3. *(Optional, recommended)* **Enable the Check for updates button.** Install with
+   your repo URL set so the app knows where to look for new versions, then it
+   checks `<base>/raw/<branch>/version.json` and updates itself from the repo:
+   ```bash
+   FRAMEASSIST_UPDATE_BASE=http://YOUR-GIT-HOST/YOU/frameassist ./install.sh
+   ```
+   (For example: `FRAMEASSIST_UPDATE_BASE=http://192.0.2.1:3000/oliver/frameassist ./install.sh`.)
+   Without it, Settings → Check for updates simply says no update source is
+   configured. See [Updates](#updates).
+
+4. **Open FrameAssist** from your apps. If the window says the shortcuts need a
    SteamVR setting, tap **Turn on** (that's SteamVR's *Enable global input
    from overlays*).
 
@@ -181,11 +206,32 @@ To make sure everything is set up, run:
 ~/.local/bin/frameassist --check
 ```
 
+## Updates
+
+**Settings → Check for updates** checks your install's repo for a newer version
+and updates the app in place (with automatic rollback if an update fails).
+
+- It works when FrameAssist was installed with `FRAMEASSIST_UPDATE_BASE` set (see
+  [Install](#install-about-5-minutes-once)); the app then reads
+  `<base>/raw/<branch>/version.json` and installs the matching source archive
+  (`<base>/archive/<branch>.tar.gz`).
+- Each release bumps `__version__` (`pyproject.toml`, `frameassist/__init__.py`)
+  and `version.json` together — the button only updates when the repo reports a
+  **higher** version, so keep them in lockstep.
+- `~/.local/bin/frameassist --check` shows whether an update source is configured
+  (it prints the URL under "In-app updates").
+- Moving between hosts (e.g. a private Git server now, GitHub later) is a
+  one-line change: install with the new `FRAMEASSIST_UPDATE_BASE` and re-run the
+  installer. The check/archive URL pattern (`raw/<branch>/version.json` +
+  `archive/<branch>.tar.gz`) is the same on Gitea and GitHub.
+
 ## Getting help / diagnostics
 
 If something doesn't work, run `~/.local/bin/frameassist --check` and share the
 output. There's also a real-device test checklist in
-[docs/DEVICE_TEST_CHECKLIST.md](docs/DEVICE_TEST_CHECKLIST.md).
+[docs/DEVICE_TEST_CHECKLIST.md](docs/DEVICE_TEST_CHECKLIST.md). `--host-test`
+pings your configured PC helper without needing a microphone, to isolate a
+streamed-PC problem to the network/helper.
 
 | Problem | Fix |
 | --- | --- |
@@ -195,6 +241,9 @@ output. There's also a real-device test checklist in
 | "Didn't catch that" | Speak a little closer/longer, or pick **Most accurate** in Settings. |
 | Words come out wrong | Pick **Most accurate**, talk close to the mic. For names, add them to **My words**. |
 | Wrong characters | FrameAssist types as a US keyboard layout. |
+| "Test connection" fails for a streamed PC | Is the helper still running (window open, showing `Listening on 0.0.0.0:8763`)? Is the PC's network set to **Private**, and did you **Allow access on Private networks** at the firewall prompt? Is the headset on the same Wi-Fi/LAN (same `192.168.x` subnet)? Use the helper's **LAN** address (not a VPN/Tailscale one) and the exact **pairing code printed this run**. |
+| Types land in the wrong window on the PC | The helper sends keys to whatever has focus *on the PC*. Click the target app once on the PC (if the Steam client has focus), and keep the helper minimised so it never types into itself. |
+| Pairing code keeps changing | The helper stores its code in `%APPDATA%\FrameAssistHost\config.json` so it stays the same across restarts. If the console prints a *new* code each launch, its config folder isn't writable on that machine. |
 
 ## Settings
 
@@ -278,7 +327,10 @@ QT_QPA_PLATFORM=offscreen pytest
 
 The test suite runs on GitHub on both x86 and ARM64 Linux and drives the
 controller logic frame by frame against a stand-in for SteamVR. See
-`.github/workflows/test.yml`.
+`.github/workflows/test.yml`. The Windows PC helper is built on `windows-latest`
+by `.github/workflows/windows-build.yml`, which boot-smoke-tests the exe (it
+must print its pairing code and start listening) before uploading it as a
+build artifact.
 
 ## Credits
 
