@@ -239,7 +239,7 @@ OV/EV cert + a trusted timestamp.
 > Signing does **not** change the elevation requirement on locked-down /
 > sandboxed sessions — that filter is about process trust, not publisher trust.
 >
-> **Version metadata is embedded in every build** (CompanyName `Oliver Meissner`,
+> **Version metadata is embedded in every build** (CompanyName `Oliver-S3`,
 > ProductName `FrameAssistHost`, FileDescription, FileVersion read from
 > `version.json`, via `host/_versioninfo.py`, wired into both specs). A real app
 > always carries this; a signed binary with *no* version info is the exact

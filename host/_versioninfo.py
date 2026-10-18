@@ -41,11 +41,11 @@ def version_info(repodir):
         ver = "1.0.0"
     tup = _version_tuple(ver)
     fields = {
-        "CompanyName": "Oliver Meissner",
+        "CompanyName": "Oliver-S3",
         "FileDescription": "FrameAssistHost PC typing helper",
         "FileVersion": ver,
         "InternalName": "FrameAssistHost",
-        "LegalCopyright": "(c) 2026 Oliver Meissner",
+        "LegalCopyright": "(c) 2026 Oliver-S3",
         "OriginalFilename": "FrameAssistHost.exe",
         "ProductName": "FrameAssistHost",
         "ProductVersion": ver,
