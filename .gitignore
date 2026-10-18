@@ -13,3 +13,5 @@ htmlcov/
 .acl-recovery/
 *.log
 .DS_Store
+# Dictation plan draft — not for gitea; remove this line once a real plan doc replaces it
+STREAMED_PC_DICTATION_PLAN.md
