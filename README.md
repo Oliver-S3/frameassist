@@ -261,9 +261,10 @@ streamed-PC problem to the network/helper.
 - **AI polish**: tidy each dictation with an AI model — **your OpenRouter
   account** (default; only the text is sent) **or a local OpenAI-compatible
   server** by setting **AI base URL** to e.g. `http://localhost:11434/v1`
-  (Ollama) or `http://localhost:1234/v1` (LM Studio) — then nothing leaves the
-  headset and no API key is needed. **AI model** optionally overrides the
-  default model. Off by default.
+  (Ollama) or `http://localhost:1234/v1` (LM Studio). An **API key is
+  required** either way — for OpenRouter, your OpenRouter key; for a local
+  server, that server's key if it enforces one (many do). **AI model**
+  optionally overrides the default model. Off by default.
 
 ## Calibrate
 

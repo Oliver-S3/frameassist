@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "frameassist"
-version = "1.2.0"
+version = "1.2.1"
 description = "FrameAssist: voice typing for the Steam Frame. Hold both grips, talk, let go."
 readme = "README.md"
 requires-python = ">=3.10"

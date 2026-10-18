@@ -8,7 +8,9 @@ Default is OpenRouter (Groq, or OpenAI fallback through the same API) using
 your own key. Any OpenAI-compatible local server can be used instead by
 setting the AI base URL (Ollama ``http://localhost:11434/v1``, LM Studio
 ``http://localhost:1234/v1``, llama.cpp server ``http://localhost:8080``) —
-then the text never leaves your machine and no API key is needed.
+then nothing but the text leaves your machine. An API key is expected either
+way: OpenRouter's key, or the local server's key if it enforces one (many do);
+the Authorization header is only emitted when a key is set.
 
 Kept deliberately small and dependency-free (urllib only) so it installs
 cleanly on the headset.

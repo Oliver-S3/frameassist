@@ -27,8 +27,9 @@ DEFAULTS = {
     "ai_polish": False,
     "ai_key": "",
     # AI polish target: empty base URL = OpenRouter (uses ai_key); set it to a
-    # local OpenAI-compatible server to tidy on this machine with no key, e.g.
+    # local OpenAI-compatible server to tidy on this machine, e.g.
     # http://localhost:11434/v1 (Ollama) or http://localhost:1234/v1 (LM Studio).
+    # ai_key is the API key for whichever endpoint (cloud or local) you use.
     "ai_base_url": "",
     "ai_model": "",
     # Where each dictation gesture ends up. "copy" or "paste" set the

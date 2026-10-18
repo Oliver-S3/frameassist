@@ -186,7 +186,7 @@ class SettingsDialog(QDialog):
         form.addRow("AI polish", self.ai_polish)
 
         self.ai_key = QLineEdit(cfg.get("ai_key", ""))
-        self.ai_key.setPlaceholderText("API key (only needed for OpenRouter/cloud; local servers can be blank)")
+        self.ai_key.setPlaceholderText("API key (required — OpenRouter's, or your local model server's key)")
         form.addRow("API key", self.ai_key)
 
         self.ai_base_url = QLineEdit(cfg.get("ai_base_url", ""))
