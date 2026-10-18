@@ -90,6 +90,10 @@ Two builds are published from the same code — pick one:
    ```
 
    Leave the helper running, **minimised** (see the caveats below).
+   > **If text isn't appearing even with the target app focused:** some managed
+   > or antivirus-policy setups block simulated typing. If so, run
+   > `FrameAssistHost.exe` **as Administrator** (right-click → Run as
+   > administrator) — that resolves it. Most normal PCs don't need this.
 
 ### Headset side — point FrameAssist at the PC
 
