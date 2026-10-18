@@ -37,6 +37,24 @@ def test_update_source_none_when_unconfigured(monkeypatch):
     assert update.update_source() == (None, None)
 
 
+def test_update_source_github_base_uses_raw_and_codeload(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_BASE", "https://github.com/oliver-s3/frameassist")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "main")
+    check, pip = update.update_source()
+    assert check == "https://raw.githubusercontent.com/oliver-s3/frameassist/main/version.json"
+    assert pip == ["-U",
+                   "frameassist @ https://codeload.github.com/oliver-s3/frameassist/tar.gz/refs/heads/main"]
+
+
+def test_update_source_github_trailing_git_and_custom_branch(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_BASE", "https://github.com/oliver-s3/frameassist.git")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "dev")
+    check, pip = update.update_source()
+    assert check == "https://raw.githubusercontent.com/oliver-s3/frameassist/dev/version.json"
+    assert pip == ["-U",
+                   "frameassist @ https://codeload.github.com/oliver-s3/frameassist/tar.gz/refs/heads/dev"]
+
+
 def test_latest_version_uses_base_endpoint(monkeypatch):
     seen = {}
 

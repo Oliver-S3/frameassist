@@ -7,9 +7,12 @@ update never leaves FrameAssist broken.
 
 Update source (in order of preference):
 1. ``FRAMEASSIST_UPDATE_BASE`` + ``FRAMEASSIST_UPDATE_BRANCH`` (default "main")
-   point at a Gitea/GitHub-style repo. The app checks
-   ``<base>/raw/<branch>/version.json`` (looking like ``{"version":"1.1.0"}``)
-   and installs the source archive ``<base>/archive/<branch>.tar.gz``.
+   point at a repo. On GitHub
+   (``https://github.com/<owner>/<repo>``) the app checks
+   ``https://raw.githubusercontent.com/<owner>/<repo>/<branch>/version.json``
+   and installs the ``codeload`` source archive; on a self-hosted Gitea-style
+   host it checks ``<base>/raw/<branch>/version.json`` and installs
+   ``<base>/archive/<branch>.tar.gz``.
 2. A legacy explicit ``FRAMEASSIST_UPDATE_URL`` (version endpoint only).
 3. Nothing — the check button reports "No update source configured".
 
@@ -20,6 +23,7 @@ desktop launcher and the SteamVR background service.
 
 import json
 import os
+import re
 import subprocess
 import sys
 import urllib.request
@@ -41,6 +45,33 @@ def current_version():
     return __version__
 
 
+_GITHUB_RE = re.compile(
+    r"^https?://(?:www\.)?github\.com/(?P<owner>[^/]+)/(?P<repo>[^/?#]+)"
+)
+
+
+def _update_urls(base, branch):
+    """(check_url, archive_url) for a repo ``base`` and ``branch``.
+
+    GitHub keeps its own raw + codeload endpoints, so a ``github.com`` base is
+    translated; any other host (Gitea/self-hosted) keeps the repo-style
+    ``<base>/raw/...`` and ``<base>/archive/...`` pattern.
+    """
+    branch = (branch.strip() or "main").lstrip("/")
+    m = _GITHUB_RE.match(base)
+    if m:
+        owner = m.group("owner")
+        repo = m.group("repo").rstrip("/")
+        if repo.endswith(".git"):
+            repo = repo[:-4]
+        check = f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/version.json"
+        archive = f"https://codeload.github.com/{owner}/{repo}/tar.gz/refs/heads/{branch}"
+    else:
+        check = f"{base}/raw/{branch}/version.json"
+        archive = f"{base}/archive/{branch}.tar.gz"
+    return check, archive
+
+
 def update_source(url=None):
     """Where a new version is checked and what gets installed.
 
@@ -53,9 +84,8 @@ def update_source(url=None):
         return url, ["-U", "frameassist"]
     base = DEFAULT_BASE.strip().rstrip("/")
     if base:
-        branch = (DEFAULT_BRANCH.strip() or "main").lstrip("/")
-        return (f"{base}/raw/{branch}/version.json",
-                ["-U", f"frameassist @ {base}/archive/{branch}.tar.gz"])
+        check, archive = _update_urls(base, DEFAULT_BRANCH)
+        return check, ["-U", f"frameassist @ {archive}"]
     if DEFAULT_URL:
         return DEFAULT_URL, ["-U", "frameassist"]
     return None, None

@@ -207,7 +207,8 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    ```bash
    FRAMEASSIST_UPDATE_BASE=http://YOUR-GIT-HOST/YOU/frameassist ./install.sh
    ```
-   (For example: `FRAMEASSIST_UPDATE_BASE=http://192.0.2.1:3000/oliver/frameassist ./install.sh`.)
+   (For example with your Git host, `FRAMEASSIST_UPDATE_BASE=https://github.com/YOU/frameassist ./install.sh`
+   — see [Updates and the update button](#updates) for Gitea vs GitHub URL forms.)
    Without it, Settings → Check for updates simply says no update source is
    configured. See [Updates](#updates).
 
