@@ -153,6 +153,17 @@ or a sandboxed desktop session). Verified to boot without elevation in a
 restricted session. Ship the folder as a zip; users extract anywhere writable
 and double-click `FrameAssistHost.exe`. CI keeps the one-file build.
 
+### Elevation on locked-down / managed sessions
+
+On most Windows PCs the helper types with no special privileges. But a managed
+or sandboxed session (e.g. a development sandbox like DSH) may silently filter
+out `SendInput` events coming from non-elevated child processes — the helper
+accepts the request and replies `{"ok":true}`, but no text appears in the
+focused window. If you see that, **run `FrameAssistHost.exe` as administrator**
+(open an Administrator PowerShell and start it there, keep the window
+minimised). Verified: elevation bypasses the filter and text lands normally.
+Normal end-user machines do not need elevation.
+
 ### Ctrl+C stops the helper cleanly
 
 The accept loop runs with a short socket timeout so KeyboardInterrupt is
