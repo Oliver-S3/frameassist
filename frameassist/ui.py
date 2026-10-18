@@ -180,13 +180,22 @@ class SettingsDialog(QDialog):
         update_row.addWidget(self.update_label, 1)
         form.addRow("Updates", update_row)
 
-        self.ai_polish = QCheckBox("Tidy each dictation with AI (via your OpenRouter account)")
+        self.ai_polish = QCheckBox("Tidy each dictation with AI (OpenRouter or a local model server)")
         self.ai_polish.setChecked(cfg.get("ai_polish", False))
         form.addRow("AI polish", self.ai_polish)
 
         self.ai_key = QLineEdit(cfg.get("ai_key", ""))
-        self.ai_key.setPlaceholderText("sk-or-... (your own key; text only is sent)")
-        form.addRow("OpenRouter key", self.ai_key)
+        self.ai_key.setPlaceholderText("API key (only needed for OpenRouter/cloud; local servers can be blank)")
+        form.addRow("API key", self.ai_key)
+
+        self.ai_base_url = QLineEdit(cfg.get("ai_base_url", ""))
+        self.ai_base_url.setPlaceholderText(
+            "empty = OpenRouter; e.g. http://localhost:11434/v1 (Ollama) or http://localhost:1234/v1 (LM Studio)")
+        form.addRow("AI base URL", self.ai_base_url)
+
+        self.ai_model = QLineEdit(cfg.get("ai_model", ""))
+        self.ai_model.setPlaceholderText("empty = default model")
+        form.addRow("AI model", self.ai_model)
 
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
@@ -255,6 +264,8 @@ class SettingsDialog(QDialog):
             "autostart": self.autostart.isChecked(),
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),
+            "ai_base_url": self.ai_base_url.text().strip(),
+            "ai_model": self.ai_model.text().strip(),
             "delivery": self.delivery.currentData(),
             "host_addr": self.host_addr.text().strip(),
             "host_port": host_port,

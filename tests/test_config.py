@@ -74,6 +74,24 @@ def test_delivery_and_host_defaults_present(tmp_path):
     assert cfg["host_secret"] == ""
 
 
+def test_ai_polish_local_defaults_present(tmp_path):
+    cfg = c.load(tmp_path / "missing.json")
+    assert cfg["ai_polish"] is False
+    assert cfg["ai_key"] == ""
+    assert cfg["ai_base_url"] == ""   # empty = OpenRouter/cloud
+    assert cfg["ai_model"] == ""      # empty = default model
+
+
+def test_ai_polish_local_values_loaded(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"ai_polish": True, "ai_base_url": "http://localhost:11434/v1",
+                                "ai_model": "qwen2.5:7b"}))
+    cfg = c.load(path)
+    assert cfg["ai_polish"] is True
+    assert cfg["ai_base_url"] == "http://localhost:11434/v1"
+    assert cfg["ai_model"] == "qwen2.5:7b"
+
+
 def test_delivery_host_accepted(tmp_path):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"delivery": "host", "host_addr": "192.168.1.50",

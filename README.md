@@ -258,8 +258,12 @@ streamed-PC problem to the network/helper.
   type into the text box or only copy to the clipboard.
 - **Buttons**: keep shortcuts on during VR games; start automatically with
   SteamVR.
-- **AI polish**: tidy each dictation through your own OpenRouter account
-  (off by default; only the text is sent).
+- **AI polish**: tidy each dictation with an AI model — **your OpenRouter
+  account** (default; only the text is sent) **or a local OpenAI-compatible
+  server** by setting **AI base URL** to e.g. `http://localhost:11434/v1`
+  (Ollama) or `http://localhost:1234/v1` (LM Studio) — then nothing leaves the
+  headset and no API key is needed. **AI model** optionally overrides the
+  default model. Off by default.
 
 ## Calibrate
 

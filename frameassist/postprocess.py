@@ -112,10 +112,13 @@ class NoPolish:
 
     @property
     def enabled(self):
-        return bool(self.cfg.get("ai_polish")) and bool(self.cfg.get("ai_key"))
+        # On with a cloud key OR a local server base URL (local needs no key).
+        return bool(self.cfg.get("ai_polish")) and bool(
+            self.cfg.get("ai_key") or self.cfg.get("ai_base_url"))
 
     def apply(self, text):
         if self.enabled:
             from .aipolish import polish
-            return polish(text, self.cfg.get("ai_key", ""), self.cfg.get("ai_model"))
+            return polish(text, self.cfg.get("ai_key", ""), self.cfg.get("ai_model"),
+                          self.cfg.get("ai_base_url", ""))
         return text

@@ -245,9 +245,10 @@ class Engine:
     # -- polish hook (postprocess.finalize calls polish.apply) -------------------
     def apply(self, text):
         """AI polish: configured, returns cleaned text; else unchanged."""
-        if self.cfg.get("ai_polish") and self.cfg.get("ai_key"):
+        if self.cfg.get("ai_polish") and (self.cfg.get("ai_key") or self.cfg.get("ai_base_url")):
             from .aipolish import polish
-            return polish(text, self.cfg["ai_key"], self.cfg.get("ai_model", ""))
+            return polish(text, self.cfg.get("ai_key", ""), self.cfg.get("ai_model", ""),
+                          self.cfg.get("ai_base_url", ""))
         return text
 
     # -- bits and pieces ---------------------------------------------------------

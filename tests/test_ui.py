@@ -26,11 +26,16 @@ def test_window_constructs(app):
 def test_settings_dialog_values(app):
     cfg = {"model": "base.en", "add_space": True, "press_enter": False,
            "after_talking": "type", "in_games": False, "autostart": True,
-           "ai_polish": False, "ai_key": ""}
+           "ai_polish": True, "ai_key": "sk-test",
+           "ai_base_url": "http://localhost:11434/v1", "ai_model": "qwen2.5:7b"}
     dialog = SettingsDialog(cfg)
     values = dialog.values()
     assert values["model"] == "base.en"
     assert values["add_space"] is True
+    assert values["ai_polish"] is True
+    assert values["ai_key"] == "sk-test"
+    assert values["ai_base_url"] == "http://localhost:11434/v1"
+    assert values["ai_model"] == "qwen2.5:7b"
     dialog.close()
 
 
