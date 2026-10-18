@@ -67,8 +67,20 @@ pyinstaller --noconfirm --distpath dist --workpath build host/FrameAssistHost.sp
 
 On first launch Windows Defender Firewall prompts about the new app. Tick
 **Private networks** and click **Allow access on Private networks**. Without
-this the LAN bind is blocked and the headset cannot connect. Public networks are
-intentionally **not** opened — pair only on a trusted home/LAN network.
+this the LAN bind is blocked and the headset cannot connect.
+
+If the headset still can't connect (`frameassist --check` shows
+`FIX PC helper reachable` while the console shows `Listening on 0.0.0.0:8763`),
+the Private-only app rule is not enough on machines with a mixed-profile setup
+(e.g. a Public-classified link in the path, or the helper exe path changed
+between builds). From an **Administrator PowerShell on the PC**, allow the port
+on ALL profiles:
+
+```powershell
+netsh advfirewall firewall add rule name="FrameAssistHost TCP 8763" dir=in action=allow protocol=TCP localport=8763 enable=yes profile=any
+```
+
+Then retest. Pair only on a network you trust.
 
 ## Where the pairing code lives
 
