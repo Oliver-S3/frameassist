@@ -12,8 +12,8 @@ Gestures (matching FrameAssist on the Steam Frame):
   Tap both grips once (a single chord tap) to stop early.
 * Double-tap the LEFT grip only  -> copy.
 * Double-tap the RIGHT grip only -> paste.
-* Flick the right stick  -> Enter ("send").
-* Flick the left stick   -> Escape.
+* Quickly press (click) the right stick  -> Enter ("send").
+* Quickly press (click) the left stick   -> Escape.
 * Hold one grip for a long time does nothing (a mistaken press or a grab).
 
 A "tap" is a press+release shorter than ``tap_max``. Two taps of the same

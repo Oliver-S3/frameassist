@@ -23,8 +23,8 @@ open-source implementation of voice typing for the Steam Frame.
 | Hands-free dictation | **Double-tap both grips**, put the controllers down and talk (up to 10 minutes); tap both grips once to stop |
 | Copy your last dictation | **Double-tap the left grip** |
 | Paste | **Double-tap the right grip** |
-| Send (Enter) | **Flick the right stick** |
-| Escape / back | **Flick the left stick** |
+| Send (Enter) | **Quickly press (click) the right stick** |
+| Escape / back | **Quickly press (click) the left stick** |
 
 Every dictation is also copied to the clipboard, so you can paste it again
 anywhere. In games, FrameAssist's buttons rest and the game keeps them — turn
@@ -114,8 +114,8 @@ Then **Save**. Dictation now goes to the PC.
 | Gesture | On the PC |
 | --- | --- |
 | Hold both grips, talk | Types the dictation into the PC's focused window (and Enter after, if "Press Enter" is on) |
-| Flick the right stick | Enter |
-| Flick the left stick | Escape |
+| Quickly press (click) the right stick | Enter |
+| Quickly press (click) the left stick | Escape |
 | Double-tap the right grip | Paste (Ctrl+V) |
 | Double-tap the left grip | Copy onto the **PC's** clipboard |
 
@@ -142,7 +142,8 @@ The first time you set this up, walk through these:
    desktop into VR.
 4. Hold both grips and dictate — include **accents and emoji** (e.g. `café`,
    `🎉`). It appears in Notepad **verbatim**.
-5. Flick **right** = Enter, flick **left** = Escape, double-tap **right grip** =
+5. Quickly press (click) the **right** stick = Enter, the **left** = Escape,
+   double-tap **right grip** =
    paste, double-tap **left grip** = copy (then Ctrl+V on the PC to confirm the
    **host** clipboard was set).
 6. Close the helper, then dictate again: the badge shows **"Can't reach the PC
@@ -274,8 +275,8 @@ wheel and talk:
 - **Sweet spot** — fine centre detail plus corner markers to find your best lens
   position.
 
-Navigation reuses your gestures: **flick right stick = next**, **flick left =
-back**, and talking to the chart works too — "finer", "coarser", "next", and
+Navigation reuses your gestures: **quickly press (click) the right stick =
+next**, **the left stick = back**, and talking to the chart works too — "finer", "coarser", "next", and
 "save as with-spacers" to remember a profile per fitment. Profiles live in
 `~/.config/frameassist/profiles.json`.
 
@@ -310,7 +311,8 @@ bash ~/.local/share/frameassist/uninstall.sh --purge
 - **Controller shortcuts:** SteamVR Input, with each button (left grip, right
   grip, left stick, right stick) in its own action set, so the app only takes
   what it needs and games keep their buttons. Gestures (hold, double-tap,
-  flick) are worked out by the app, not by SteamVR. Default bindings for the
+  flick — a quick press-and-release of a stick) are worked out by the app, not
+  by SteamVR. Default bindings for the
   Steam Frame controllers (`frame_controller`), plus Quest/Touch and Index.
   The app uses Valve's official Linux ARM64 OpenVR library.
 - **Starting with SteamVR:** a user service that starts and stops with
