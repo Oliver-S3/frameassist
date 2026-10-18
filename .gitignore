@@ -15,3 +15,5 @@ htmlcov/
 .DS_Store
 # Dictation plan draft — not for gitea; remove this line once a real plan doc replaces it
 STREAMED_PC_DICTATION_PLAN.md
+# Dev-only from-source launcher (hard-coded local paths); not shipped
+host/run-from-source.cmd

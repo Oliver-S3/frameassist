@@ -1,0 +1,55 @@
+name: windows-build
+
+# Builds the Windows PC-helper companion into a one-file FrameAssistHost.exe
+# and uploads it as a downloadable build artifact. Mirrors the style of
+# test.yml; the actual packaging is host/FrameAssistHost.spec (see host/build.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    # PyInstaller cannot cross-compile, so the companion is built on Windows.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+      - name: Build FrameAssistHost.exe
+        # --distpath/--workpath pin the output to the repo root so the upload
+        # path is deterministic. The spec is referenced relative to host/ so it
+        # resolves host/frameassist_host.py regardless of the current directory.
+        run: pyinstaller --noconfirm --distpath dist --workpath build host/FrameAssistHost.spec
+      - name: Smoke test the exe
+        # Boot the frozen artifact and confirm it prints the pairing code +
+        # listening banner (validates the one-file bootstrap + config creation
+        # + LAN bind on a real, writable-temp Windows runner).
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "dist\FrameAssistHost.exe" -PassThru -RedirectStandardOutput smoke_out.txt -RedirectStandardError smoke_err.txt
+          Start-Sleep -Seconds 6
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          $out = Get-Content smoke_out.txt -Raw -ErrorAction SilentlyContinue
+          if ($out -notmatch 'Pairing code') {
+            Write-Error "exe did not print a pairing code`n$out`n$(Get-Content smoke_err.txt -Raw -ErrorAction SilentlyContinue)"
+            exit 1
+          }
+          # 'Listening on' is printed only after a SUCCESSFUL server.bind(), so it
+          # proves the LAN bind worked, not just that the one-file bootstrap ran.
+          if ($out -notmatch 'Listening on') {
+            Write-Error "exe did not report a successful LAN bind (Listening on)`n$out`n$(Get-Content smoke_err.txt -Raw -ErrorAction SilentlyContinue)"
+            exit 1
+          }
+          Write-Output $out
+      - name: Upload exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: FrameAssistHost-windows
+          path: dist/FrameAssistHost.exe

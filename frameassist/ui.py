@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QWidget,
 )
 
-from .config import MODELS, load, save
+from .config import DEFAULTS, MODELS, load, save
 from .engine import ERROR, LISTENING, READY, WORKING
 
 DARK_BG = "#0d1016"
@@ -124,6 +124,45 @@ class SettingsDialog(QDialog):
             {"type": 0, "clipboard": 1, "paste": 2}.get(cfg.get("after_talking", "type"), 0))
         form.addRow("After talking", self.after)
 
+        # Where each dictation is typed: the headset itself (local uinput, the
+        # default) or a streamed PC over the LAN via the PC helper. The host
+        # fields and the test button only make sense in "host" mode, so they
+        # stay hidden until it's selected (see _update_host_visibility).
+        self.delivery = QComboBox()
+        self.delivery.addItem("This headset", "frame")
+        self.delivery.addItem("A streamed PC (over your network)", "host")
+        self.delivery.setCurrentIndex(
+            {"frame": 0, "host": 1}.get(cfg.get("delivery", "frame"), 0))
+        form.addRow("Type into", self.delivery)
+
+        self._host_widgets = []
+        self.host_addr = QLineEdit(cfg.get("host_addr", ""))
+        self.host_addr.setPlaceholderText("PC address, e.g. 192.168.1.50")
+        self._add_host_row(form, "PC address", self.host_addr)
+
+        self.host_port = QLineEdit(str(cfg.get("host_port", DEFAULTS["host_port"])))
+        self.host_port.setPlaceholderText(str(DEFAULTS["host_port"]))
+        self._add_host_row(form, "PC port", self.host_port)
+
+        self.host_secret = QLineEdit(cfg.get("host_secret", ""))
+        self.host_secret.setEchoMode(QLineEdit.Password)
+        self.host_secret.setPlaceholderText("pairing code from the PC helper")
+        self._add_host_row(form, "Pairing code", self.host_secret)
+
+        test_host = QWidget()
+        test_row = QHBoxLayout(test_host)
+        test_row.setContentsMargins(0, 0, 0, 0)
+        self.test_conn_btn = QPushButton("Test connection")
+        self.test_conn_btn.clicked.connect(self._test_connection)
+        self.test_conn_label = QLabel("")
+        self.test_conn_label.setObjectName("muted")
+        test_row.addWidget(self.test_conn_btn)
+        test_row.addWidget(self.test_conn_label, 1)
+        self._add_host_row(form, "Test", test_host)
+
+        self.delivery.currentIndexChanged.connect(self._update_host_visibility)
+        self._update_host_visibility()
+
         self.in_games = QCheckBox("Keep shortcuts on during VR games")
         self.in_games.setChecked(cfg.get("in_games", False))
         form.addRow("Buttons", self.in_games)
@@ -166,7 +205,47 @@ class SettingsDialog(QDialog):
         self.update_label.setText(message)
         self.update_btn.setEnabled(True)
 
+    def _add_host_row(self, form, label_text, field):
+        """Add a labelled form row and remember both widgets so they can be
+        shown/hidden together with the rest of the streamed-PC block."""
+        label = QLabel(label_text)
+        form.addRow(label, field)
+        self._host_widgets += [label, field]
+
+    def _update_host_visibility(self):
+        """The streamed-PC fields only apply in 'host' delivery mode."""
+        on = self.delivery.currentData() == "host"
+        for widget in self._host_widgets:
+            widget.setVisible(on)
+
+    def _test_connection(self):
+        from .hostlink import HostTypist
+        self.test_conn_btn.setEnabled(False)
+        self.test_conn_label.setText("Testing…")
+        self.test_conn_label.repaint()
+        try:
+            port = int(self.host_port.text().strip() or DEFAULTS["host_port"])
+        except ValueError:
+            port = DEFAULTS["host_port"]
+        typist = HostTypist(self.host_addr.text().strip(), port,
+                            self.host_secret.text().strip())
+        try:
+            ok = typist.ping()
+            message = ("Connected — the PC helper is reachable." if ok
+                       else "No PC helper reached — check the address, port "
+                            "and pairing code.")
+        except Exception as err:  # a failed test click must never take the dialog down
+            message = f"Test failed: {err}"
+        finally:
+            typist.close()
+        self.test_conn_label.setText(message)
+        self.test_conn_btn.setEnabled(True)
+
     def values(self):
+        try:
+            host_port = int(self.host_port.text().strip())
+        except ValueError:
+            host_port = DEFAULTS["host_port"]
         return {
             "model": self.model.currentData(),
             "add_space": self.add_space.isChecked(),
@@ -176,6 +255,10 @@ class SettingsDialog(QDialog):
             "autostart": self.autostart.isChecked(),
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),
+            "delivery": self.delivery.currentData(),
+            "host_addr": self.host_addr.text().strip(),
+            "host_port": host_port,
+            "host_secret": self.host_secret.text().strip(),
         }
 
 

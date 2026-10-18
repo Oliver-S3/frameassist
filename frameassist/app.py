@@ -158,6 +158,43 @@ def _check(cfg):
     except Exception as err:
         report(f"Speech model ({model}) importable", False, str(err))
 
+    try:
+        from .update import update_source
+        check, _pip_args = update_source()
+        if check:
+            report("In-app updates", True, check)
+        else:
+            lines.append("OK in-app updates  — no source configured; install with "
+                         "FRAMEASSIST_UPDATE_BASE set to enable Check for updates")
+    except Exception as err:
+        report("In-app updates", False, str(err))
+
+    # Streamed-PC delivery: only meaningful when the user chose "host" and set
+    # an address. Otherwise it's an informative SKIP, not a problem — the local
+    # headset path is the default and needs no PC helper.
+    delivery = cfg.get("delivery", "frame")
+    host_addr = cfg.get("host_addr", "")
+    if delivery == "host" and host_addr:
+        try:
+            from .hostlink import HostTypist
+            t = HostTypist(host_addr, cfg.get("host_port", 8763),
+                           cfg.get("host_secret", ""))
+            try:
+                ok = t.ping()
+            finally:
+                t.close()
+            report("PC helper reachable", ok,
+                   "" if ok else f"{host_addr}:{cfg.get('host_port', 8763)}")
+        except Exception as err:
+            report("PC helper reachable", False, str(err))
+    else:
+        if delivery == "host":
+            lines.append("SKIP PC helper  — streamed-PC mode is on but no PC "
+                         "address is set; add one in Settings")
+        else:
+            lines.append("SKIP PC helper  — dictation types into the headset "
+                         "(not a streamed PC); set 'Type into' to a streamed PC to enable this check")
+
     lines.append("")
     lines.append(f"State dir: {STATE_DIR}")
     lines.append(f"Data dir:  {DATA_DIR}")
@@ -211,6 +248,27 @@ def _type_test(cfg, text):
     return 0
 
 
+def _host_test(cfg):
+    """Ping the streamed-PC helper — a standalone check of the host delivery
+    path (reachability + pairing code), with no mic/STT involved. Mirrors
+    ``--type-test`` for the "type into a streamed PC" mode. Defuses cleanly when
+    no helper is configured: an empty address simply fails to connect."""
+    from .hostlink import HostTypist
+    addr = cfg.get("host_addr", "")
+    port = cfg.get("host_port", 8763)
+    t = HostTypist(addr, port, cfg.get("host_secret", ""))
+    try:
+        ok = t.ping()
+    finally:
+        t.close()
+    if ok:
+        print(f"reachable: PC helper answered at {addr}:{port}")
+        return 0
+    print(f"not reachable: no PC helper answered at {addr or '(no address set)'}:{port} "
+          f"— is it running, and is the pairing code correct?")
+    return 1
+
+
 def _open_bindings(cfg):
     """Open SteamVR's controller-binding editor for this app so the user can
     inspect/test which buttons are bound. In the editor, each button should
@@ -260,6 +318,8 @@ def main(argv=None):
                         help="enable SteamVR's 'Enable global input from overlays'")
     parser.add_argument("--type-test", metavar="TEXT",
                         help="type TEXT into the focused window and exit (typing diagnosis)")
+    parser.add_argument("--host-test", action="store_true",
+                        help="ping the streamed-PC helper and exit (reachability diagnosis)")
     parser.add_argument("--bindings", action="store_true",
                         help="open SteamVR's controller binding editor for this app")
     parser.add_argument("--version", action="version",
@@ -279,6 +339,8 @@ def main(argv=None):
         return _turn_on(cfg)
     if args.type_test is not None:
         return _type_test(cfg, args.type_test)
+    if args.host_test:
+        return _host_test(cfg)
     if args.background:
         return _run_background(cfg)
     return run_window(cfg)

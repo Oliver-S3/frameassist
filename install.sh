@@ -7,6 +7,14 @@ set -euo pipefail
 
 REPO="${FRAMEASSIST_REPO:-YOUR_USERNAME/frameassist}"
 BRANCH="${FRAMEASSIST_BRANCH:-main}"
+# In-app "Check for updates" (Settings). Set FRAMEASSIST_UPDATE_BASE to your
+# repo (e.g. http://gitea-host/user/frameassist) to make the button live: the
+# app then checks <base>/raw/<branch>/version.json and installs the source
+# archive <base>/archive/<branch>.tar.gz. The values are baked into the desktop
+# launcher and the SteamVR service below.
+FRAMEASSIST_UPDATE_BASE="${FRAMEASSIST_UPDATE_BASE:-}"
+FRAMEASSIST_UPDATE_BRANCH="${FRAMEASSIST_UPDATE_BRANCH:-main}"
+export FRAMEASSIST_UPDATE_BASE FRAMEASSIST_UPDATE_BRANCH
 # Valve's official Linux ARM64 OpenVR library (pinned to a known commit).
 OPENVR_COMMIT="0924064316de3effbcd1acf1e309182a2deb1c05"
 APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/frameassist"
@@ -117,12 +125,16 @@ mkdir -p "$ICON_DIR" "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 if [[ -f "$SRC/assets/frameassist.svg" ]]; then
   cp "$SRC/assets/frameassist.svg" "$ICON_DIR/frameassist.svg"
 fi
+DESKTOP_ENV=""
+if [[ -n "$FRAMEASSIST_UPDATE_BASE" ]]; then
+  DESKTOP_ENV="FRAMEASSIST_UPDATE_BASE=$FRAMEASSIST_UPDATE_BASE FRAMEASSIST_UPDATE_BRANCH=${FRAMEASSIST_UPDATE_BRANCH:-main} "
+fi
 cat > "${XDG_DATA_HOME:-$HOME/.local/share}/applications/frameassist.desktop" <<DESKTOP
 [Desktop Entry]
 Type=Application
 Name=FrameAssist
 Comment=Hold both grips and talk to type on the Steam Frame
-Exec=env -u LD_LIBRARY_PATH -u LD_PRELOAD $VENV/bin/frameassist
+Exec=env -u LD_LIBRARY_PATH -u LD_PRELOAD ${DESKTOP_ENV}$VENV/bin/frameassist
 Icon=frameassist
 Categories=Utility;Accessibility;
 DESKTOP

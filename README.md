@@ -37,15 +37,125 @@ talk, so you don't need the window open.
 
 - **Typing reaches the Frame's own focused window** — Steam chat, the browser,
   the terminal, desktop apps on the Frame. That's the supported, tested use.
-- **Apps running on a PC and streamed to the Frame (Steam Remote Play/vrlink)
-  are outside this boundary**: Steam only forwards text there through *Steam's own
-  on-screen keyboard*, and FrameAssist can't inject into it programmatically.
-  This is a platform limitation shared by the other open-source Frame voice
-  typers (frame-voice, whisper-frame, FrameYap) — none of them types into a
-  streamed app either.
+- **Typing into a PC streamed into VR is supported (opt-in).** A streamed
+  desktop is only *video* to the Frame, so keystrokes injected on the Frame
+  can't reach it — that part is a real platform limit (see
+  [docs/FRAME_DEBUG_NOTES.md](docs/FRAME_DEBUG_NOTES.md), "Wall 2"). FrameAssist
+  gets around it by sending the **finished text** to a small helper **running on
+  the PC**, which types it there with native Windows `SendInput`. Turn it on with
+  **Settings → Type into → A streamed PC** — see
+  [Type into a streamed PC](#type-into-a-streamed-pc). The default, always-available
+  path is still typing into the Frame's own focused window.
 - US keyboard layout; accented characters are normalized to ASCII equivalents.
 - Speech transcription runs on the headset's CPU/GPU; a heavy VR game may
   stutter briefly while a clip transcribes.
+
+## Type into a streamed PC
+
+By default FrameAssist types into the **Frame's own** focused window. If you
+stream a Windows PC's desktop into VR (Steam Remote Play / vrlink) and want
+your words to land in an app *on that PC*, switch FrameAssist to the opt-in
+**streamed-PC** mode.
+
+A streamed desktop is just video to the Frame, so there is nothing to type into
+there. In this mode FrameAssist sends the **finished text** over your local
+network to a small helper running on the PC, which types it with the native
+Windows `SendInput` API — functionally identical to a physical keyboard plugged
+into the PC. Speech still runs entirely on the headset; only the final text
+crosses your LAN, and it's authenticated with a pairing code.
+
+### Windows side — run the helper
+
+`FrameAssistHost.exe` is a **separate download** — it is *not* part of the Frame
+install (see [Optional install](#optional-install-what-is-and-is-not-optional)).
+
+1. Download **`FrameAssistHost.exe`** from the project's **Releases** page and
+   run it on the PC. No Python or install step is needed.
+2. The first time it runs, Windows Firewall asks for permission. Tick
+   **"Allow access on Private networks"** (leave **Public** unchecked) and click
+   **Allow access** — it opens a port on your LAN so the Frame can reach it.
+3. The console prints the values you'll enter on the headset:
+
+   ```
+   PC address : 192.168.x.y:8763
+   Pairing code : K7QF-3MZX   (example — your code is shown by the helper)
+   ```
+
+   Leave the helper running, **minimised** (see the caveats below).
+
+### Headset side — point FrameAssist at the PC
+
+Open **Settings** → **Type into** → **"A streamed PC (over your network)"**, then
+fill in the three fields the helper printed:
+
+| Field | Example |
+| --- | --- |
+| PC address | `192.168.x.y` |
+| PC port | `8763` (default) |
+| Pairing code | `K7QF-3MZX` (the one the helper printed) |
+
+Tap **Test connection** — it reports **reachable** when the PC helper answers.
+Then **Save**. Dictation now goes to the PC.
+
+### What each gesture does in streamed-PC mode
+
+| Gesture | On the PC |
+| --- | --- |
+| Hold both grips, talk | Types the dictation into the PC's focused window (and Enter after, if "Press Enter" is on) |
+| Flick the right stick | Enter |
+| Flick the left stick | Escape |
+| Double-tap the right grip | Paste (Ctrl+V) |
+| Double-tap the left grip | Copy onto the **PC's** clipboard |
+
+### Two caveats that matter (correctness, not polish)
+
+- **Keep the helper window minimised or in the tray.** `SendInput` types into
+  whatever window is focused *on the PC*; if the helper's own console is focused,
+  it would type into itself. Minimise it once you've read the address and pairing
+  code.
+- **If the Steam client has focus, click the target app once on the PC first.**
+  Keys go to the PC's *existing* foreground window — the helper never steals focus
+  (it never calls `SetForegroundWindow`), so make sure the app you want (Notepad,
+  a browser, a game's chat box) is the focused one before you talk.
+
+### Manual end-to-end checklist
+
+The first time you set this up, walk through these:
+
+1. Run `FrameAssistHost.exe` on the PC; at the firewall prompt tick **Allow access
+   on Private networks**; note the printed **PC address** and **pairing code**.
+2. On the headset, **Settings → Type into → A streamed PC**, enter the address,
+   port and code, then tap **Test connection** → **reachable**.
+3. On the PC, open **Notepad**, click into it so it's focused, and stream the
+   desktop into VR.
+4. Hold both grips and dictate — include **accents and emoji** (e.g. `café`,
+   `🎉`). It appears in Notepad **verbatim**.
+5. Flick **right** = Enter, flick **left** = Escape, double-tap **right grip** =
+   paste, double-tap **left grip** = copy (then Ctrl+V on the PC to confirm the
+   **host** clipboard was set).
+6. Close the helper, then dictate again: the badge shows **"Can't reach the PC
+   helper…"** and your text is still on the **Frame's** clipboard, so nothing is
+   lost.
+7. Bring the helper's own window to the front and dictate: it **never types into
+   itself** (it stays minimised in normal use).
+
+### Optional install: what is and is not optional
+
+"Optional" means two different things here, so to be explicit:
+
+- **Headset side (the Frame):** streamed-PC is a **Settings toggle** that
+  defaults to **"This headset"** (`frame`). The local uinput typing path is
+  unchanged and is what you get unless you switch it on.
+- **Windows side (the PC):** we still **build and ship** `FrameAssistHost.exe` —
+  it's a **separately downloadable release artifact** linked from this README. It
+  is **not bundled into `install.sh`**, so the default Linux install on the Frame
+  is completely unchanged. You simply choose to download and run it when you want
+  to type into a streamed PC.
+
+### Future work
+
+v1 uses **manual IP entry** — you type the PC's address yourself. Automatic
+discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
 
 ## Install (about 5 minutes, once)
 

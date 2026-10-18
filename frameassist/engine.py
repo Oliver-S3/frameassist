@@ -12,6 +12,7 @@ the window and the VR badge.
 import threading
 
 from .audio import Recorder
+from .hostlink import HostTypist, HostUnavailable
 from .keyboard import Typist
 from .log import log
 from .postprocess import finalize, spell_with_words
@@ -41,6 +42,8 @@ class Engine:
 
         self.transcriber = transcriber
         self._typist = typist
+        self._host = None          # cached HostTypist (delivery="host")
+        self._host_key = None      # (addr, port, secret) it was built for
         self._recorder = recorder or Recorder()
         self._lock = threading.Lock()
         self._working = False
@@ -83,21 +86,39 @@ class Engine:
                 self._stop_talking()
             elif cmd == "copy":
                 if self.last_text:
+                    # The Frame clipboard is always set: it is the manual
+                    # fallback, and in host mode the host clipboard is set too.
                     self.copy_clipboard(self.last_text)
+                    if self._delivery() == "host":
+                        try:
+                            self._need_host().copy_text(self.last_text)  # the HOST clipboard
+                        except HostUnavailable as err:
+                            self._host_unreachable(err)
+                            return
                     self._set(READY, "Copied. Paste it anywhere.")
             elif cmd == "paste":
-                self._need_typist().shortcut("paste")
+                try:
+                    self._need_typist().shortcut("paste")
+                except HostUnavailable as err:
+                    self._host_unreachable(err)
+                    return
                 self._set(READY, "Pasted.")
             elif cmd == "enter":
                 if self.calibrate is not None and self.calibrate.active:
                     self.calibrate.next()
                 else:
-                    self._need_typist().shortcut("enter")
+                    try:
+                        self._need_typist().shortcut("enter")
+                    except HostUnavailable as err:
+                        self._host_unreachable(err)
             elif cmd == "escape":
                 if self.calibrate is not None and self.calibrate.active:
                     self.calibrate.prev()
                 else:
-                    self._need_typist().shortcut("escape")
+                    try:
+                        self._need_typist().shortcut("escape")
+                    except HostUnavailable as err:
+                        self._host_unreachable(err)
 
     def cancel_talking(self):
         with self._lock:
@@ -186,20 +207,37 @@ class Engine:
         if text.strip():
             self.copy_clipboard(text.strip())
             mode = self.cfg.get("after_talking", "type")
-            if mode == "type":
-                self._need_typist().type_text(text)
-                if self.cfg.get("press_enter"):
-                    self._need_typist().shortcut("enter")
-            elif mode == "paste":
-                # The text is already on the clipboard (set above). Send Ctrl+V
-                # so it lands in whatever text box has focus on the Frame.
-                # (Note: this follows the Frame's own focused window, like
-                # typing does — it is not forwarded into apps streamed from a
-                # PC, which Steam Remote Play/vrlink only delivers through
-                # Steam's own on-screen keyboard.)
-                import time as _t
-                _t.sleep(0.35)
-                self._need_typist().shortcut("paste")
+            host = self._delivery() == "host"
+            try:
+                if mode == "type":
+                    self._need_typist().type_text(text)
+                    if self.cfg.get("press_enter"):
+                        self._need_typist().shortcut("enter")
+                elif mode == "paste":
+                    if host:
+                        # Ctrl+V on the host pastes the HOST clipboard, which the
+                        # Frame clipboard above does not reach. Send copy first
+                        # (sets the host clipboard), then paste. No 0.35 s settle:
+                        # the host copy is a synchronous socket write, not a
+                        # local clipboard race.
+                        self._need_host().copy_text(text.strip())
+                        self._need_typist().shortcut("paste")
+                    else:
+                        # The text is already on the clipboard (set above). Send
+                        # Ctrl+V so it lands in whatever text box has focus on
+                        # the Frame. (Note: this follows the Frame's own focused
+                        # window, like typing does — it is not forwarded into
+                        # apps streamed from a PC, which Steam Remote Play /
+                        # vrlink only delivers through Steam's own on-screen
+                        # keyboard.)
+                        import time as _t
+                        _t.sleep(0.35)
+                        self._need_typist().shortcut("paste")
+            except HostUnavailable as err:
+                # Clipboard is already set (above) as the manual fallback; do
+                # not type locally.
+                self._host_unreachable(err)
+                return
             log.info("dictated: %r", text)
         self.on_transcript(text.strip())
         self._set(READY, "Ready")
@@ -213,10 +251,37 @@ class Engine:
         return text
 
     # -- bits and pieces ---------------------------------------------------------
+    def _delivery(self):
+        return self.cfg.get("delivery", "frame")
+
     def _need_typist(self):
+        # The single seam every type_text/shortcut call goes through. When
+        # delivering to a streamed PC it returns the LAN client (same method
+        # surface as keyboard.Typist), so those call sites route unchanged.
+        if self._delivery() == "host":
+            return self._need_host()
         if self._typist is None:
             self._typist = Typist()
         return self._typist
+
+    def _need_host(self):
+        # Built lazily from the three host_* config values and cached, keyed on
+        # them, so a Settings change (including the background copy's
+        # _reload_settings -> cfg.update) transparently rebuilds it.
+        key = (self.cfg.get("host_addr", ""),
+               self.cfg.get("host_port", 8763),
+               self.cfg.get("host_secret", ""))
+        if self._host is None or self._host_key != key:
+            self._host = HostTypist(*key)
+            self._host_key = key
+        return self._host
+
+    def _host_unreachable(self, err):
+        """One place for the failure badge; the Frame clipboard copy (already
+        done by the caller) is the manual fallback. No local typing."""
+        addr = self.cfg.get("host_addr") or "?"
+        log.warning("host delivery failed: %s", err)
+        self._set(ERROR, f"Can't reach the PC helper at {addr} — is FrameAssistHost running?")
 
     def _set(self, state, message):
         self.state = state
@@ -228,8 +293,9 @@ class Engine:
             self._recorder.cancel()
         except Exception:
             pass
-        if self._typist is not None:
-            try:
-                self._typist.close()
-            except Exception:
-                pass
+        for closer in (self._typist, self._host):
+            if closer is not None:
+                try:
+                    closer.close()
+                except Exception:
+                    pass

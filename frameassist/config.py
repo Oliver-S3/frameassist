@@ -30,11 +30,19 @@ DEFAULTS = {
     # clipboard / Ctrl+C; "enter"/"escape" send a key.
     "punct_model": "default",
     "recent_limit": 20,
+    # Where dictation is typed: "frame" is the local uinput keyboard (the
+    # default); "host" sends it over the LAN to the PC helper for a streamed
+    # desktop. Additive and opt-in; the local path is untouched.
+    "delivery": "frame",
+    "host_addr": "",
+    "host_port": 8763,
+    "host_secret": "",
 }
 
 # Known keys, so an old config with a bad value is repaired, not trusted.
 _ENUM_KEYS = {
     "after_talking": ("type", "clipboard", "paste"),
+    "delivery": ("frame", "host"),
 }
 
 
@@ -56,6 +64,10 @@ def load(path=None):
         cfg["model"] = DEFAULTS["model"]
     for key in ("autostart",):
         cfg[key] = bool(cfg[key])
+    try:
+        cfg["host_port"] = int(cfg["host_port"])
+    except (TypeError, ValueError):
+        cfg["host_port"] = DEFAULTS["host_port"]
     return cfg
 
 

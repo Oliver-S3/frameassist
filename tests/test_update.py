@@ -12,6 +12,73 @@ def test_version_tuple():
     assert update._version_tuple("garbage") == (0, 0, 0)
 
 
+# -- repo-based update source (FRAMEASSIST_UPDATE_BASE / BRANCH) ---------------
+
+def test_update_source_uses_base_and_branch(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_BASE", "http://gitea/oliver/frameassist")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "main")
+    check, pip = update.update_source()
+    assert check == "http://gitea/oliver/frameassist/raw/main/version.json"
+    assert pip == ["-U",
+                   "frameassist @ http://gitea/oliver/frameassist/archive/main.tar.gz"]
+
+
+def test_update_source_trailing_slash_and_custom_branch(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_BASE", "http://gitea/oliver/frameassist/")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "dev")
+    check, pip = update.update_source()
+    assert check == "http://gitea/oliver/frameassist/raw/dev/version.json"
+    assert pip == ["-U", "frameassist @ http://gitea/oliver/frameassist/archive/dev.tar.gz"]
+
+
+def test_update_source_none_when_unconfigured(monkeypatch):
+    monkeypatch.setattr(update, "DEFAULT_BASE", "")
+    monkeypatch.setattr(update, "DEFAULT_URL", "")
+    assert update.update_source() == (None, None)
+
+
+def test_latest_version_uses_base_endpoint(monkeypatch):
+    seen = {}
+
+    def fake(req, timeout=15):
+        seen["url"] = req
+        return _json_resp("2.0.0")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake)
+    monkeypatch.setattr(update, "DEFAULT_BASE", "http://gitea/oliver/frameassist")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "main")
+    assert update.latest_version() == "2.0.0"
+    assert seen["url"] == "http://gitea/oliver/frameassist/raw/main/version.json"
+
+
+def test_run_self_update_installs_from_archive(monkeypatch):
+    captured = []
+
+    def fake_run(*args, **kwargs):
+        captured.append(args[0])
+        return subprocess.CompletedProcess(args[0], returncode=0)
+
+    monkeypatch.setattr("frameassist.update.subprocess.run", fake_run)
+    monkeypatch.setattr(update, "DEFAULT_BASE", "http://gitea/oliver/frameassist")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "main")
+    monkeypatch.setattr(update, "current_version", lambda: "1.0.0")
+    monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: _json_resp("2.0.0"))
+    msg = update.run_self_update()
+    assert "updated" in msg.lower()
+    assert any("-U" in c and "archive/main.tar.gz" in " ".join(c) for c in captured)
+
+
+def test_run_self_update_reports_unreachable_source(monkeypatch):
+    def boom(req, timeout=15):
+        raise OSError("down")
+
+    monkeypatch.setattr("urllib.request.urlopen", boom)
+    monkeypatch.setattr(update, "DEFAULT_BASE", "http://gitea/oliver/frameassist")
+    monkeypatch.setattr(update, "DEFAULT_BRANCH", "main")
+    monkeypatch.setattr(update, "current_version", lambda: "1.0.0")
+    assert "couldn't reach" in update.run_self_update().lower()
+
+
 def test_latest_version(monkeypatch):
     def fake(req, timeout=15):
         class R:

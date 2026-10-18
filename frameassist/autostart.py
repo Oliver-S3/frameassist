@@ -25,7 +25,22 @@ def launch_command():
     return f'"{exe}"' if exe.exists() else f'"{sys.executable}" -m frameassist'
 
 
-def unit_text(command):
+def update_env():
+    """The in-app update source (FRAMEASSIST_UPDATE_BASE/BRANCH) from this
+    process's environment, ready to bake into a systemd unit so the background
+    copy knows where to check for updates too."""
+    env = {}
+    base = os.environ.get("FRAMEASSIST_UPDATE_BASE", "").strip()
+    if base:
+        env["FRAMEASSIST_UPDATE_BASE"] = base
+        env["FRAMEASSIST_UPDATE_BRANCH"] = os.environ.get(
+            "FRAMEASSIST_UPDATE_BRANCH", "main")
+    return env
+
+
+def unit_text(command, env=None):
+    env_lines = "".join(
+        f"Environment={key}={value}\n" for key, value in (env or {}).items())
     return f"""[Unit]
 Description=FrameAssist: hold both grips and talk
 # Starts and stops with SteamVR, which SteamOS runs as this user service.
@@ -35,7 +50,7 @@ Requisite=steamvr.service
 
 [Service]
 ExecStart={command} --background
-Restart=on-failure
+{env_lines}Restart=on-failure
 RestartSec=5
 
 [Install]
@@ -99,7 +114,7 @@ def set_enabled(on, command=None):
         return False
     if on:
         path = UNIT_DIR / UNIT
-        text = unit_text(command or launch_command())
+        text = unit_text(command or launch_command(), env=update_env())
         try:
             if not path.exists() or path.read_text() != text:
                 path.parent.mkdir(parents=True, exist_ok=True)
