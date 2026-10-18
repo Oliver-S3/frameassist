@@ -429,16 +429,24 @@ def lan_ipv4s():
 
 
 def _setup_stdout():
-    """Make prints visible immediately.
+    """Make prints visible immediately and never crash on non-ASCII.
 
-    When stdout is a redirected file/pipe (CI, or a helper spawned by something
-    else) Python buffers it, so a force-killed process loses its banner. With
-    line buffering every print appears as it happens — required both for the
-    CI smoke test and for telling the user what the helper printed.
+    * Python block-buffers stdout when it is redirected (CI / spawned), so a
+      force-killed process would lose its banner; line buffering flushes every
+      print as it happens.
+    * A legacy Windows console encodes stdout as cp1252/cp437, which cannot
+      hold characters like the 👁 (U+1F441) used to flag the pairing code —
+      ``print()`` would raise UnicodeEncodeError and kill the frozen app.
+      Switching to UTF-8 (if possible) shows them on capable terminals and
+      degrades the rest via errors="replace" instead of crashing.
     """
     for stream in (sys.stdout, sys.stderr):
         reconfigure = getattr(stream, "reconfigure", None)
-        if reconfigure is not None:
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace", line_buffering=True)
+        except Exception:
             try:
                 reconfigure(line_buffering=True)
             except Exception:
@@ -456,7 +464,15 @@ def main():
     print("---------------------")
     for ip in addrs:
         print("  PC address : %s:%d" % (ip, port))
-    print("  Pairing code : %s" % secret)
+    print()
+    # The pairing code is the thing the headset user has to transcribe, so make
+    # it impossible to miss. ASCII frame keeps it readable on any console; the
+    # \U0001F441 (EYES) glyph is a bonus on capable terminals. The
+    # "Pairing code : " prefix is kept verbatim for the CI smoke test.
+    print("  ==============================================")
+    print("    \U0001F441  Pairing code : %s" % secret)
+    print("    ^ enter exactly this in the FrameAssist headset")
+    print("  ==============================================")
     print()
     print("Enter these into the FrameAssist headset under Settings >")
     print("'Type into: A streamed PC'. Keep THIS WINDOW MINIMISED or in the")
