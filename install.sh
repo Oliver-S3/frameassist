@@ -125,6 +125,11 @@ mkdir -p "$ICON_DIR" "${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 if [[ -f "$SRC/assets/frameassist.svg" ]]; then
   cp "$SRC/assets/frameassist.svg" "$ICON_DIR/frameassist.svg"
 fi
+if [[ -f "$SRC/assets/frameassist.png" ]]; then
+  ICON_PNG_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/icons/hicolor/256x256/apps"
+  mkdir -p "$ICON_PNG_DIR"
+  cp "$SRC/assets/frameassist.png" "$ICON_PNG_DIR/frameassist.png"
+fi
 DESKTOP_ENV=""
 if [[ -n "$FRAMEASSIST_UPDATE_BASE" ]]; then
   DESKTOP_ENV="FRAMEASSIST_UPDATE_BASE=$FRAMEASSIST_UPDATE_BASE FRAMEASSIST_UPDATE_BRANCH=${FRAMEASSIST_UPDATE_BRANCH:-main} "

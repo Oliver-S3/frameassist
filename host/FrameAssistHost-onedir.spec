@@ -84,6 +84,7 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
     version=version_info(_repo_root),
+    icon=os.path.join(_repo_root, "assets", "frameassist.ico"),
 )
 
 coll = COLLECT(
