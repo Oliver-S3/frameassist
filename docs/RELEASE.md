@@ -1,8 +1,7 @@
 # Releasing FrameAssist to the public (GitHub)
 
 This captures the hygiene already done plus the steps for a clean public
-release on GitHub (the current origin is a private Gitea at
-`http://192.0.2.1:3000/oliver/frameassist`).
+release on GitHub (the repo is hosted at `github.com/Oliver-S3/frameassist`).
 
 ## 1) Repo hygiene — done, keep it that way
 

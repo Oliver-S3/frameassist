@@ -75,8 +75,7 @@ talk, so you don't need the window open.
   the terminal, desktop apps on the Frame. That's the supported, tested use.
 - **Typing into a PC streamed into VR is supported (opt-in).** A streamed
   desktop is only *video* to the Frame, so keystrokes injected on the Frame
-  can't reach it — that part is a real platform limit (see
-  [docs/FRAME_DEBUG_NOTES.md](docs/FRAME_DEBUG_NOTES.md), "Wall 2"). FrameAssist
+  can't reach it — that part is a real platform limit. FrameAssist
   gets around it by sending the **finished text** to a small helper **running on
   the PC**, which types it there with native Windows `SendInput`. Turn it on with
   **Settings → Type into → A streamed PC** — see
