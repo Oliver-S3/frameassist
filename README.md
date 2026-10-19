@@ -244,7 +244,22 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    Without it, Settings → Check for updates simply says no update source is
    configured. See [Updates](#updates).
 
-4. **Open FrameAssist** from your apps. If the window says the shortcuts need a
+4. *(Optional)* **Enable SSH** so the headset can be reached from another
+   machine — handy for remote help or running the installer/updates from your
+   PC instead of fiddling in the headset's virtual keyboard. On the Frame, in
+   Konsole:
+   ```bash
+   passwd                        # set a password for your user (one-time)
+   sudo systemctl enable --now sshd
+   ```
+   then connect from your PC:
+   ```bash
+   ssh <your-user>@<frame-ip>    # e.g. ssh deck@192.168.1.50
+   ```
+   SSH is a privileged surface — only enable it if you want remote access, and
+   keep the Frame on a network you trust.
+
+5. **Open FrameAssist** from your apps. If the window says the shortcuts need a
    SteamVR setting, tap **Turn on** (that's SteamVR's *Enable global input
    from overlays*).
 
