@@ -24,8 +24,8 @@ code. Canonical serialisation is exactly::
 
     json.dumps(body, sort_keys=True, separators=(",", ":")).encode("utf-8")
 
-with the default ``ensure_ascii=True`` (see ``_canonical`` below and finding F2
-in ``docs/phase1-review-findings.md``). An independent implementation that
+with the default ``ensure_ascii=True`` (see ``_canonical`` below). An independent
+implementation that
 serialises any differently — different separators, key order, or ``ensure_ascii``
 — computes a different digest and is rejected. The pairing code itself is never
 put on the wire and never returned.

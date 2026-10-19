@@ -278,10 +278,8 @@ and updates the app in place (with automatic rollback if an update fails).
 ## Getting help / diagnostics
 
 If something doesn't work, run `~/.local/bin/frameassist --check` and share the
-output. There's also a real-device test checklist in
-[docs/DEVICE_TEST_CHECKLIST.md](docs/DEVICE_TEST_CHECKLIST.md). `--host-test`
-pings your configured PC helper without needing a microphone, to isolate a
-streamed-PC problem to the network/helper.
+output. `--host-test` pings your configured PC helper without needing a
+microphone, to isolate a streamed-PC problem to the network/helper.
 
 | Problem | Fix |
 | --- | --- |
