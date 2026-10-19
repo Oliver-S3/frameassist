@@ -13,6 +13,33 @@ Inspired by — and built on the proven Steam Frame architecture of —
 [frame-voice](https://github.com/juanramosjr1/frame-voice) (MIT): an independent,
 open-source implementation of voice typing for the Steam Frame.
 
+### Why this exists
+
+Because nobody shipped a true **PC-streaming** dictation assistant. The Frame
+apps that exist target the headset itself — but that doesn't solve the actual
+use case: replying on social media, doing quick work, or jumping into a chat
+**while you're in a streamed PC game**, without installing anything directly on
+the Frame. FrameAssist covers that gap: you wear the headset, speak, and the
+text is typed into the real PC in front of you.
+
+---
+
+## In action
+
+Dictation lands in whatever window has focus on the streamed PC — here, plain
+Notepad:
+
+![Notepad with dictated text](docs/media/notepad-dictation.png)
+
+The helper console shows the values you pair with (`PC address` + pairing code
+are shown on your own screen; redacted here):
+
+![FrameAssistHost helper console](docs/media/helper-console.png)
+
+How it fits together:
+
+![Architecture diagram](docs/media/architecture.svg)
+
 ---
 
 ## How you use it
@@ -189,12 +216,12 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    - **One-line install** (once the project is published on GitHub — the URL
      below is a placeholder):
      ```bash
-     curl -fsSL https://raw.githubusercontent.com/YOU/frameassist/main/install.sh | bash && exec bash
+     curl -fsSL https://raw.githubusercontent.com/Oliver-S3/frameassist/main/install.sh | bash && exec bash
      ```
    - **From a source checkout** (e.g. while the project still lives on your own
      Git server — clone it onto the Frame first):
      ```bash
-     git clone http://YOUR-GIT-HOST/YOU/frameassist && cd frameassist && ./install.sh
+     git clone https://github.com/Oliver-S3/frameassist && cd frameassist && ./install.sh
      ```
    The installer shows 5 steps and tells you when it's done. Running it again
    updates the app.
@@ -205,9 +232,9 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    your repo URL set so the app knows where to look for new versions, then it
    checks `<base>/raw/<branch>/version.json` and updates itself from the repo:
    ```bash
-   FRAMEASSIST_UPDATE_BASE=http://YOUR-GIT-HOST/YOU/frameassist ./install.sh
+   FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist ./install.sh
    ```
-   (For example with your Git host, `FRAMEASSIST_UPDATE_BASE=https://github.com/YOU/frameassist ./install.sh`
+   (For example: `FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist ./install.sh`
    — see [Updates and the update button](#updates) for Gitea vs GitHub URL forms.)
    Without it, Settings → Check for updates simply says no update source is
    configured. See [Updates](#updates).

@@ -2,13 +2,13 @@
 # FrameAssist installer for the Steam Frame (SteamOS desktop mode).
 #
 # One line, in Konsole:
-#   curl -fsSL https://raw.githubusercontent.com/YOU/frameassist/main/install.sh | bash && exec bash
+#   curl -fsSL https://raw.githubusercontent.com/Oliver-S3/frameassist/main/install.sh | bash && exec bash
 set -euo pipefail
 
-REPO="${FRAMEASSIST_REPO:-YOUR_USERNAME/frameassist}"
+REPO="${FRAMEASSIST_REPO:-Oliver-S3/frameassist}"
 BRANCH="${FRAMEASSIST_BRANCH:-main}"
 # In-app "Check for updates" (Settings). Set FRAMEASSIST_UPDATE_BASE to your
-# repo (e.g. http://gitea-host/user/frameassist) to make the button live: the
+# repo (e.g. https://github.com/you/frameassist) to make the button live: the
 # app then checks <base>/raw/<branch>/version.json and installs the source
 # archive <base>/archive/<branch>.tar.gz. The values are baked into the desktop
 # launcher and the SteamVR service below.
