@@ -394,4 +394,7 @@ build artifact.
 - Feature design and gesture set: inspired by the interaction model of
   voice-typing-for-VR apps that hold a grip to talk.
 
-MIT licensed. Not affiliated with or endorsed by Valve.
+## License
+
+[MIT](LICENSE) — Copyright (c) 2026 **Oliver-S3**. Not affiliated with or
+endorsed by Valve. Third-party notices in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
