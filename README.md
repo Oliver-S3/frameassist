@@ -97,26 +97,28 @@ crosses your LAN, and it's authenticated with a pairing code.
 
 ### Windows side — run the helper
 
-`FrameAssistHost.exe` is a **separate download** — it is *not* part of the Frame
-install (see [Optional install](#optional-install-what-is-and-is-not-optional)).
+`FrameAssistHost.exe` is a **separate download** from the
+[Releases page](https://github.com/Oliver-S3/frameassist/releases/latest) — it
+is *not* part of the Frame install (see
+[Optional install](#optional-install-what-is-and-is-not-optional)). No build
+needed: pick a release artifact and run it.
 
 Two builds are published from the same code — pick one:
-- **`FrameAssistHost.exe`** (single file) — the classic one-file build; a plain
-  double-click works on normal Windows PCs.
-- **`FrameAssistHost/`** (a folder, `_internal` DLLs beside the exe) —
-  **recommended**: it runs in place with no self-extraction, so it also works
-  where an antivirus or a locked-down session blocks one-file apps (and starts
-  faster). Extract the folder anywhere writable and run `FrameAssistHost.exe`.
+- **`FrameAssistHost.exe`** (single file) — download-and-run in one file; a
+  plain double-click works on normal Windows PCs.
+- **`FrameAssistHost-<version>-win64.zip`** — **recommended**: extract the
+  folder and run `FrameAssistHost\FrameAssistHost.exe`. It runs in place with
+  no self-extraction, so it also works where an antivirus or a locked-down
+  session blocks one-file apps (and starts faster).
 
-> **Signed builds.** Both builds are code-signed with a personal self-signed
-> certificate (see `host/signing/`). On a new PC, run
-> `host/signing/trust-FrameAssistHost.ps1` once (per-user, no admin) so Windows
-> stops showing SmartScreen's "Unknown publisher" — then the signed helper just
-> runs. That warning is not a virus: it only means Windows hadn't seen the
-> signer before.
+> **Signed builds.** Both builds are code-signed (CN=FrameAssistHost, SHA-256 +
+> SHA-1, timestamped). On a fresh PC, SmartScreen may ask **once** —
+> **"More info → Run anyway"** — because the publisher is self-signed; that is
+> expected and safe (a one-time approval per download). Your own machines can
+> skip the prompt entirely with `host/signing/trust-FrameAssistHost.ps1`.
 
-1. Download either build from the project's **Releases** page and run it on the
-   PC. No Python or install step is needed.
+1. Download either artifact and run it on the PC. No Python or install step is
+   needed.
 2. The first time it runs, Windows Firewall asks for permission. Tick
    **"Allow access on Private networks"** (leave **Public** unchecked) and click
    **Allow access** — it opens a port on your LAN so the Frame can reach it.
