@@ -3,9 +3,8 @@
 FrameAssist types into the Frame itself with a ``uinput`` keyboard
 (:mod:`frameassist.keyboard`). Those keystrokes land on the Frame's own
 compositor, so they never reach a Windows desktop that is only being *streamed*
-into VR as video (see ``docs/FRAME_DEBUG_NOTES.md`` "Wall 2"). The only way to
-type there is to send the finished text to the host PC itself, where a small
-companion injects it with Win32 ``SendInput``.
+into VR as video. The only way to type there is to send the finished text to
+the host PC itself, where a small companion injects it with Win32 ``SendInput``.
 
 :class:`HostTypist` is that headset-side client. It exposes the **same method
 surface as** :class:`frameassist.keyboard.Typist` (``type_text`` / ``shortcut``
