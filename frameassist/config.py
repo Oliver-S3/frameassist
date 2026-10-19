@@ -1,0 +1,129 @@
+"""Settings and the user's word list, saved under ~/.config/frameassist."""
+
+import json
+import os
+from pathlib import Path
+
+CONFIG_DIR = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "frameassist"
+AUTOSTART_FILE = Path(
+    os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")
+) / "autostart" / "frameassist.desktop"
+
+# Speech model presets. FrameAssist pairs "Fast / Balanced / Most accurate"
+# with a local model that fits the Frame's ARM CPU.
+MODELS = {
+    "tiny.en": "Fast",
+    "base.en": "Balanced",
+    "small.en": "Most accurate",
+}
+
+DEFAULTS = {
+    "model": "base.en",
+    "add_space": True,
+    "press_enter": False,
+    "in_games": False,
+    "rest_while_streaming": False,
+    "autostart": True,
+    "after_talking": "type",  # "type" | "clipboard" | "paste"
+    "ai_polish": False,
+    "ai_key": "",
+    # AI polish target: empty base URL = OpenRouter (uses ai_key); set it to a
+    # local OpenAI-compatible server to tidy on this machine, e.g.
+    # http://localhost:11434/v1 (Ollama) or http://localhost:1234/v1 (LM Studio).
+    # ai_key is the API key for whichever endpoint (cloud or local) you use.
+    "ai_base_url": "",
+    "ai_model": "",
+    # Where each dictation gesture ends up. "copy" or "paste" set the
+    # clipboard / Ctrl+C; "enter"/"escape" send a key.
+    "punct_model": "default",
+    "recent_limit": 20,
+    # Where dictation is typed: "frame" is the local uinput keyboard (the
+    # default); "host" sends it over the LAN to the PC helper for a streamed
+    # desktop. Additive and opt-in; the local path is untouched.
+    "delivery": "frame",
+    "host_addr": "",
+    "host_port": 8763,
+    "host_secret": "",
+}
+
+# Known keys, so an old config with a bad value is repaired, not trusted.
+_ENUM_KEYS = {
+    "after_talking": ("type", "clipboard", "paste"),
+    "delivery": ("frame", "host"),
+}
+
+
+def load(path=None):
+    path = Path(path or CONFIG_DIR / "config.json")
+    cfg = json.loads(json.dumps(DEFAULTS))
+    try:
+        saved = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return cfg
+    if not isinstance(saved, dict):
+        return cfg
+    for key, value in saved.items():
+        if key in _ENUM_KEYS and value not in _ENUM_KEYS[key]:
+            cfg[key] = DEFAULTS[key]
+        elif key in cfg:
+            cfg[key] = value
+    if cfg["model"] not in MODELS:
+        cfg["model"] = DEFAULTS["model"]
+    for key in ("autostart",):
+        cfg[key] = bool(cfg[key])
+    try:
+        cfg["host_port"] = int(cfg["host_port"])
+    except (TypeError, ValueError):
+        cfg["host_port"] = DEFAULTS["host_port"]
+    return cfg
+
+
+def save(cfg, path=None):
+    path = Path(path or CONFIG_DIR / "config.json")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+
+
+WORDS_HEADER = """\
+# My words: names and words the speech model should spell your way.
+# Put one on each line, then save. Your next dictation uses them.
+# Only add words it gets wrong: a short list works best.
+# Lines starting with # are ignored.
+"""
+
+
+def words_path():
+    return CONFIG_DIR / "words.txt"
+
+
+def words_file(path=None):
+    """The word list's path, created with instructions if it's missing."""
+    path = Path(path or words_path())
+    if not path.exists():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(WORDS_HEADER, encoding="utf-8")
+    return path
+
+
+def load_words(path=None):
+    """The user's word list (Settings > My words), without repeats."""
+    try:
+        text = Path(path or words_path()).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    words = []
+    for line in text.splitlines():
+        if line.lstrip().startswith("#"):
+            continue
+        for word in line.split(","):
+            word = " ".join(word.split())
+            if word and word not in words:
+                words.append(word)
+    return words
+
+
+def remove_desktop_autostart():
+    """Older versions could start the app with the desktop session; SteamVR
+    starts it now. Turning auto-start off removes that file too."""
+    if AUTOSTART_FILE.exists():
+        AUTOSTART_FILE.unlink()

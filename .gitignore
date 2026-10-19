@@ -1,0 +1,22 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.pytest_cache/
+.pytest-tmp/
+.coverage
+htmlcov/
+.claude/
+.acl-recovery/
+*.log
+.DS_Store
+# Dictation plan draft — not for gitea; remove this line once a real plan doc replaces it
+STREAMED_PC_DICTATION_PLAN.md
+# Dev-only from-source launcher (hard-coded local paths); not shipped
+host/run-from-source.cmd
+# PRIVATE signing material — never commit the p12 or its password
+host/signing/*.p12
+host/signing/.signing-password.txt

@@ -1,0 +1,81 @@
+{
+  "action_manifest_version": 0,
+  "alias_info": {},
+  "app_key": "frameassist.voicetyping",
+  "bindings": {
+    "/actions/grip_l": {
+      "sources": [
+        {
+          "path": "/user/hand/left/input/grip",
+          "mode": "button",
+          "parameters": {
+            "click_activate_threshold": "0.1",
+            "click_deactivate_threshold": "0.05"
+          },
+          "inputs": {
+            "click": {
+              "output": "/actions/grip_l/in/press"
+            },
+            "touch": {
+              "output": "/actions/grip_l/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/grip_r": {
+      "sources": [
+        {
+          "path": "/user/hand/right/input/grip",
+          "mode": "button",
+          "parameters": {
+            "click_activate_threshold": "0.1",
+            "click_deactivate_threshold": "0.05"
+          },
+          "inputs": {
+            "click": {
+              "output": "/actions/grip_r/in/press"
+            },
+            "touch": {
+              "output": "/actions/grip_r/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/stick_l": {
+      "sources": [
+        {
+          "path": "/user/hand/left/input/joystick",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/stick_l/in/press"
+            }
+          }
+        }
+      ]
+    },
+    "/actions/stick_r": {
+      "sources": [
+        {
+          "path": "/user/hand/right/input/joystick",
+          "mode": "button",
+          "parameters": {},
+          "inputs": {
+            "click": {
+              "output": "/actions/stick_r/in/press"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "category": "steamvr_input",
+  "controller_type": "knuckles",
+  "description": "Hold both grips to talk. Double-tap both for hands-free. Flick right stick to send, left for Escape.",
+  "name": "FrameAssist defaults (knuckles)",
+  "options": {},
+  "simulated_actions": []
+}

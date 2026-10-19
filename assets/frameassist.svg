@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- FrameAssist icon: say it (mic) → typed (caret). Dark square + signature yellow. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#161c28"/>
+      <stop offset="1" stop-color="#0b0e14"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <rect x="30" y="30" width="452" height="452" rx="82" fill="none"
+        stroke="#ffd400" stroke-width="8" opacity="0.14"/>
+
+  <!-- microphone -->
+  <rect x="192" y="116" width="88" height="150" rx="44" fill="#ffd400"/>
+  <path d="M176 296 Q256 372 336 296" fill="none" stroke="#ffd400"
+        stroke-width="26" stroke-linecap="round"/>
+  <rect x="240" y="306" width="32" height="66" rx="16" fill="#ffd400"/>
+  <rect x="176" y="368" width="160" height="28" rx="14" fill="#ffd400"/>
+
+  <!-- typed-text caret + lines -->
+  <rect x="352" y="200" width="66" height="16" rx="8" fill="#c9a91c"/>
+  <rect x="352" y="226" width="44" height="16" rx="8" fill="#8a7213"/>
+  <rect x="352" y="252" width="22" height="72" rx="11" fill="#ffe27a"/>
+</svg>
