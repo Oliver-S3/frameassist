@@ -28,6 +28,11 @@ text is typed into the real PC in front of you.
 
 ![FrameAssist animated promo](docs/media/promo.gif)
 
+Typing into a chat app — the voice becomes text in the compose box and sends
+(illustrative, generic content):
+
+![Typing into a chat app](docs/media/typing-chat.gif)
+
 The headset types into whatever window has focus on the streamed PC — here is
 the PC helper alongside a plain editor:
 
