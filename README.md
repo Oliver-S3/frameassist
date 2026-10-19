@@ -26,15 +26,14 @@ text is typed into the real PC in front of you.
 
 ## In action
 
-Dictation lands in whatever window has focus on the streamed PC — here, plain
-Notepad:
+![FrameAssist animated promo](docs/media/promo.gif)
 
-![Notepad with dictated text](docs/media/notepad-dictation.png)
-
-The helper console shows the values you pair with (`PC address` + pairing code
-are shown on your own screen; redacted here):
+The headset types into whatever window has focus on the streamed PC — here is
+the PC helper alongside a plain editor:
 
 ![FrameAssistHost helper console](docs/media/helper-console.png)
+
+(The pairing code and LAN address are shown on your own screen only.)
 
 How it fits together:
 
