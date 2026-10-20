@@ -197,6 +197,23 @@ def _check(cfg):
             lines.append("SKIP PC helper  — dictation types into the headset "
                          "(not a streamed PC); set 'Type into' to a streamed PC to enable this check")
 
+    # Rendered (nominal) FOV per eye, when SteamVR is reachable. Informational
+    # only — the physical lens FOV can't be measured in software.
+    try:
+        import openvr  # noqa: F401
+        from .steamvr import read_projection_fov
+        fov = read_projection_fov(openvr.VRSystem()) if hasattr(openvr, "VRSystem") else None
+        if fov:
+            hl, vl = fov["left"]
+            hr, vr = fov["right"]
+            lines.append(f"OK rendered FOV  — H≈{hl:.0f}° V≈{vl:.0f}° (L)  ·  "
+                         f"H≈{hr:.0f}° V≈{vr:.0f}° (R), monocular")
+        else:
+            lines.append("OK rendered FOV  — SteamVR not reporting projection "
+                         "(start SteamVR to read it)")
+    except Exception as err:
+        lines.append(f"OK rendered FOV  — could not read ({err})")
+
     lines.append("")
     lines.append(f"State dir: {STATE_DIR}")
     lines.append(f"Data dir:  {DATA_DIR}")
