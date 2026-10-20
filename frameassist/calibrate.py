@@ -27,16 +27,18 @@ FINENESS_NAMES = ("coarse", "fine", "finest")
 FINENESS_LEVELS = len(FINENESS_NAMES)
 
 # Chart identifiers and how to render them.
-TESTS = ("resolution", "alignment", "sweetspot")
+TESTS = ("resolution", "alignment", "sweetspot", "fov")
 TEST_NAMES = {
     "resolution": "Resolution",
     "alignment": "Alignment",
     "sweetspot": "Sweet spot",
+    "fov": "FOV / fit",
 }
 TEST_HINTS = {
     "resolution": "Roll the IPD wheel until the star centre is crisp and free of doubling.",
     "alignment": "The two bars and rings should look centred and single.",
     "sweetspot": "Keep the fine detail sharp while you glance side to side.",
+    "fov": "Adjust the head strap and spacers until the edge ring is even and centred, and the centre stays crisp.",
 }
 
 W, H = 2048, 1024  # overlay texture
@@ -173,6 +175,8 @@ def render_chart(test, fineness=1, w=W, h=H):
         return _render_alignment(fineness, w, h)
     if test == "sweetspot":
         return _render_sweetspot(fineness, w, h)
+    if test == "fov":
+        return _render_fov(fineness, w, h)
     raise ValueError(f"unknown chart {test!r}")
 
 
@@ -281,6 +285,65 @@ def _render_sweetspot(fineness, w, h):
     p.drawText(60, 60, TEST_NAMES["sweetspot"])
     p.setPen(grey)
     p.drawText(60, 100, TEST_HINTS["sweetspot"])
+    p.end()
+    return _buffer(img)
+
+
+def _render_fov(fineness, w, h):
+    """FOV / fit chart: a big edge ring + radial ticks + corner notches so you
+    can see the visible-field edge while adjusting the head strap or spacers.
+
+    If the ring looks offset, cut off, or asymmetric, the fit is pulling the
+    lens — re-seat the strap/spacers until the ring is even all around.
+    """
+    import math
+    from PySide6.QtCore import QPointF, Qt
+    from PySide6.QtGui import QColor, QPainter, QPen
+    img = _qimage(w, h)
+    p = QPainter(img)
+    p.setRenderHint(QPainter.Antialiasing)
+    p.fillRect(0, 0, w, h, QColor(10, 12, 16))
+    white = QColor(238, 241, 246)
+    grey = QColor(139, 148, 167)
+    cx, cy = w // 2, h // 2
+
+    # Outer ring = reference for the visible field edge; inner ring shades it.
+    r = int(h * 0.46)
+    p.setPen(QPen(white, max(2, 7 - fineness * 2)))
+    p.drawEllipse(cx - r, cy - r, r * 2, r * 2)
+    p.setPen(QPen(grey, max(2, 4 - fineness)))
+    r2 = int(h * 0.40)
+    p.drawEllipse(cx - r2, cy - r2, r2 * 2, r2 * 2)
+
+    # Radial ticks around the outer ring, denser at higher fineness.
+    ticks = 16 + fineness * 8
+    for i in range(ticks):
+        a = 2 * math.pi * i / ticks
+        ca, sa = math.cos(a), math.sin(a)
+        x0, y0 = cx + int((r - int(0.12 * h)) * ca), cy + int((r - int(0.12 * h)) * sa)
+        x1, y1 = cx + int((r - int(0.03 * h)) * ca), cy + int((r - int(0.03 * h)) * sa)
+        p.drawLine(QPointF(x0, y0), QPointF(x1, y1))
+
+    # Centre alignment: crosshair + dot.
+    p.setPen(QPen(white, max(3, 8 - fineness * 2)))
+    p.drawLine(QPointF(cx - int(h * 0.18), cy), QPointF(cx + int(h * 0.18), cy))
+    p.drawLine(QPointF(cx, cy - int(h * 0.18)), QPointF(cx, cy + int(h * 0.18)))
+    p.setBrush(white)
+    p.setPen(Qt.NoPen)
+    p.drawEllipse(cx - 8, cy - 8, 16, 16)
+
+    # Corner notches so vignetting or a cut-off edge is easy to spot.
+    m = int(h * 0.44)
+    p.setPen(QPen(grey, 4))
+    for sx, sy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+        xc, yc = cx + sx * m, cy + sy * m
+        p.drawLine(QPointF(xc, yc - int(h * 0.05)), QPointF(xc, yc))
+        p.drawLine(QPointF(xc - int(h * 0.05), yc), QPointF(xc, yc))
+
+    p.setPen(white)
+    p.drawText(60, 80, TEST_NAMES["fov"])
+    p.setPen(grey)
+    p.drawText(60, 120, TEST_HINTS["fov"])
     p.end()
     return _buffer(img)
 

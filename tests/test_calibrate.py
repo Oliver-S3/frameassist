@@ -21,6 +21,8 @@ def test_next_cycles_through_tests():
     assert s.test == "alignment"
     s.next()
     assert s.test == "sweetspot"
+    s.next()
+    assert s.test == "fov"
     s.next()  # wraps
     assert s.test == "resolution"
 
@@ -29,7 +31,7 @@ def test_prev_wraps_backwards():
     s = cal.CalibrationSession()
     s.start()
     s.prev()
-    assert s.test == "sweetspot"
+    assert s.test == "fov"
 
 
 def test_finer_coarser_bounds():
