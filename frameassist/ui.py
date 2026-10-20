@@ -568,7 +568,8 @@ class CalibrateDialog(QDialog):
         self.setWindowTitle("Calibrate FrameAssist")
         self.setMinimumWidth(480)
 
-        from .calibrate import CalibrationSession, load_profiles, remove_profile, save_profile
+        from .calibrate import (TEST_HINTS, TEST_NAMES, TESTS,
+                                CalibrationSession, load_profiles, remove_profile, save_profile)
 
         self.CalibrationSession = CalibrationSession
         self.load_profiles = load_profiles
@@ -581,9 +582,11 @@ class CalibrateDialog(QDialog):
 
         root = QVBoxLayout(self)
         hint = QLabel(
-            "Roll the IPD wheel while a chart is shown. Flick right stick = next, "
-            "left = back. Talk to choose: “finer”, “coarser”, “next”, "
-            "“save as my fit”, “done”.")
+            "The charts are a visual helper — you do the adjusting: roll the IPD "
+            "wheel (Resolution / Alignment) and re-seat the head strap or spacers "
+            "(FOV / fit) while a chart is shown. Flick right stick = next, left = "
+            "back. Talk to choose: “finer”, “coarser”, “next”, “save as my fit”, "
+            "“done”.")
         hint.setWordWrap(True)
         hint.setObjectName("muted")
         root.addWidget(hint)
@@ -592,6 +595,11 @@ class CalibrateDialog(QDialog):
         self.status.setObjectName("status")
         self.status.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
         root.addWidget(self.status)
+
+        self.instructions = QLabel(TEST_HINTS.get(self.session.test, ""))
+        self.instructions.setObjectName("muted")
+        self.instructions.setWordWrap(True)
+        root.addWidget(self.instructions)
 
         row = QHBoxLayout()
         self.start_btn = QPushButton("Start" if not self.session.active else "Stop")
@@ -614,6 +622,21 @@ class CalibrateDialog(QDialog):
         row2.addWidget(finer)
         root.addLayout(row2)
 
+        jump = QLabel("Jump to a chart:")
+        jump.setObjectName("muted")
+        root.addWidget(jump)
+        for r in range(2):
+            hrow = QHBoxLayout()
+            for c in range(2):
+                i = r * 2 + c
+                if i < len(TESTS):
+                    tid = TESTS[i]
+                    btn = QPushButton(TEST_NAMES[tid])
+                    btn.clicked.connect(
+                        lambda _=False, t=tid: self._act(lambda: self.session.show_test(t)))
+                    hrow.addWidget(btn)
+            root.addLayout(hrow)
+
         self.profiles_label = QLabel("")
         self.profiles_label.setObjectName("muted")
         self.profiles_label.setWordWrap(True)
@@ -635,9 +658,11 @@ class CalibrateDialog(QDialog):
         self._refresh_profiles()
 
     def _on_session_change(self, status, message=""):
+        from .calibrate import TEST_HINTS
         self.status.setText(status)
         if message:
             self.status.setStyleSheet(f"color: {ACCENT}; font-weight: 600;")
+        self.instructions.setText(TEST_HINTS.get(self.session.test, ""))
         active = bool(getattr(self.session, "active", False))
         self._update_overlay(active)
         self.start_btn.setText("Stop" if active else "Start")

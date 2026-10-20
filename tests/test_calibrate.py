@@ -34,6 +34,23 @@ def test_prev_wraps_backwards():
     assert s.test == "fov"
 
 
+def test_show_test_jumps_and_notifies():
+    s = cal.CalibrationSession()
+    s.start()
+    msg = s.show_test("fov")
+    assert s.test == "fov"
+    assert "FOV" in msg and "strap" in msg
+    s.show_test("resolution")
+    assert s.test == "resolution"
+
+
+def test_show_test_unknown_raises():
+    s = cal.CalibrationSession()
+    import pytest
+    with pytest.raises(ValueError):
+        s.show_test("bogus")
+
+
 def test_finer_coarser_bounds():
     s = cal.CalibrationSession()
     s.start()

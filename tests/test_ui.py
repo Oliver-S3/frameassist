@@ -5,8 +5,8 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
-from frameassist.ui import MainWindow, SettingsDialog  # noqa: E402
+from PySide6.QtWidgets import QApplication, QPushButton  # noqa: E402
+from frameassist.ui import CalibrateDialog, MainWindow, SettingsDialog  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -21,6 +21,20 @@ def test_window_constructs(app):
     window = MainWindow(cfg, engine, on_settings=lambda cfg: None)
     assert window.windowTitle() == "FrameAssist"
     window.close()
+
+
+def test_calibrate_dialog_has_fov_button_and_instructions(app):
+    import types
+    engine = types.SimpleNamespace(calibrate=None)
+    dialog = CalibrateDialog(engine, overlay_factory=lambda: None)
+    texts = [b.text() for b in dialog.findChildren(QPushButton)]
+    assert "FOV / fit" in texts
+    assert "Resolution" in texts and "Sweet spot" in texts
+    # The FOV quick-jump updates the on-screen instruction.
+    dialog.session.show_test("fov")
+    assert "strap" in dialog.instructions.text()
+    assert dialog.session.test == "fov"
+    dialog.close()
 
 
 def test_settings_dialog_values(app):

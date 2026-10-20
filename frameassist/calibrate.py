@@ -96,6 +96,13 @@ class CalibrationSession:
         self.test_index = (self.test_index - 1) % len(TESTS)
         return self._notify(f"{self.test_name}. {TEST_HINTS[self.test]}")
 
+    def show_test(self, test_id):
+        """Jump straight to a chart by id (e.g. ``"fov"``). Returns the message."""
+        if test_id not in TESTS:
+            raise ValueError(f"unknown chart {test_id!r}")
+        self.test_index = TESTS.index(test_id)
+        return self._notify(f"{self.test_name}. {TEST_HINTS[self.test]}")
+
     def finer(self):
         self.fineness = min(self.fineness + 1, FINENESS_LEVELS - 1)
         return self._notify(f"{self.test_name} · {self.fineness_name}")
