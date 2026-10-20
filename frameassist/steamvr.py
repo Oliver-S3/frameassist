@@ -1,6 +1,13 @@
 """SteamVR integration: controller buttons, the global-input setting, the
 "Listening..." badge, and keeping the buttons out of games.
 
+Field of view: the *rendered/nominal* per-eye FOV (degrees) is read straight
+from SteamVR's projection tangents (``VRSystem.GetProjectionRaw``) — that is
+the FOV the headset is registered to render, so it can dip with render-width
+settings. The *physical* FOV you see through the lenses can't be measured in
+software; that's what the Calibrate charts are for.
+
+
 Each button the app uses (left grip, right grip, left stick, right stick) is
 its own SteamVR action set, the way Steam Frame overlay apps read buttons.
 That lets us take only the buttons we need and leave games to their own
@@ -36,6 +43,42 @@ DATA_DIR = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) /
 DIAG_PATH = STATE_DIR / "steamvr.json"
 
 HOME_KEYS = ("steam.app.250820",)  # SteamVR Home
+
+
+def projection_fov_degrees(pfl, pfr, pft, pfb):
+    """Monocular rendered FOV per eye from OpenVR projection tangents.
+
+    ``pfl/pfr/pft/pfb`` are the four ``GetProjectionRaw`` tangents (left, right,
+    top, bottom). Returns (horizontal°, vertical°) for that eye.
+    """
+    import math
+    h = math.degrees(math.atan(pfr) - math.atan(pfl))
+    v = math.degrees(math.atan(pft) - math.atan(pfb))
+    return h, v
+
+
+def read_projection_fov(vr_system):
+    """Per-eye rendered FOV from a SteamVR system object, or None.
+
+    Accepts either the camelCase ``getProjectionRaw`` or capitalised
+    ``GetProjectionRaw`` API name. Returns
+    ``{"left": (h, v), "right": (h, v)}`` degrees (monocular), or None when the
+    read fails or isn't available (never raises).
+    """
+    import ctypes
+    try:
+        method = getattr(vr_system, "getProjectionRaw", None) or \
+                 getattr(vr_system, "GetProjectionRaw", None)
+        if method is None:
+            return None
+        out = {}
+        for name, eye in (("left", 0), ("right", 1)):
+            buf = [ctypes.c_float(0.0) for _ in range(4)]
+            method(eye, *[ctypes.byref(b) for b in buf])
+            out[name] = tuple(round(x, 1) for x in projection_fov_degrees(*[b.value for b in buf]))
+        return out
+    except Exception:
+        return None
 
 
 def is_home(app_key):
@@ -484,6 +527,12 @@ class SteamVR:
             status, summary = "on", (f"Connected: {', '.join(self.controllers)}. "
                                      "Hold the grips and talk, or double-tap them for hands-free.")
         self._set_status(status, summary)
+        fov = None
+        if self.vr is not None:
+            try:
+                fov = read_projection_fov(self.vr.VRSystem())
+            except Exception:
+                fov = None
         try:
             DIAG_PATH.parent.mkdir(parents=True, exist_ok=True)
             DIAG_PATH.write_text(json.dumps({
@@ -494,7 +543,7 @@ class SteamVR:
                 "in_game": self.in_game, "dashboard": self.dashboard, "paused": self.paused,
                 "in_games": self.in_games, "streaming": self.streaming,
                 "rest_while_streaming": self.rest_while_streaming,
-                "scene": self._scene_key}, indent=2))
+                "scene": self._scene_key, "fov": fov}, indent=2))
         except OSError:
             pass
 

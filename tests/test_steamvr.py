@@ -339,3 +339,41 @@ def test_frame_ui_vrlink_is_home_not_game():
     assert is_home("system.generated.gamescope")
     # Real steam games stay games.
     assert not is_home("steam.app.1245620")
+
+
+# -- rendered FOV --------------------------------------------------------------
+
+def test_projection_fov_math():
+    from frameassist.steamvr import projection_fov_degrees
+    # Symmetric 90° HFOV: atan(1) - atan(-1) = 45 - (-45).
+    h, v = projection_fov_degrees(-1.0, 1.0, 0.8, -0.8)
+    assert abs(h - 90.0) < 0.01
+    assert abs(v - 2 * 38.659808) < 0.01   # atan(0.8) - atan(-0.8)
+    assert v > h * 0.8
+
+
+def test_read_projection_fov_from_vr_system():
+    import ctypes
+    from frameassist.steamvr import read_projection_fov
+
+    class FakeSystem:
+        def getProjectionRaw(self, eye, left, right, top, bottom):
+            values = (-1.0, 1.0, 0.8, -0.8)
+            for ptr, val in zip((left, right, top, bottom), values):
+                ctypes.cast(ptr, ctypes.POINTER(ctypes.c_float)).contents.value = val
+
+    out = read_projection_fov(FakeSystem())
+    assert out is not None
+    assert set(out) == {"left", "right"}
+    h, v = out["left"]
+    assert abs(h - 90.0) < 0.05
+    assert abs(v - out["right"][1]) < 0.05
+
+
+def test_read_projection_fov_none_without_api():
+    from frameassist.steamvr import read_projection_fov
+
+    class NoApi:
+        pass
+
+    assert read_projection_fov(NoApi()) is None
