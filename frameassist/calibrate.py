@@ -416,22 +416,37 @@ class CalibrationOverlay:
         try:
             from .steamvr import APP_KEY
             self.handle = self.overlay.createOverlay(APP_KEY + ".calibrate", "Calibrate")
-            self.overlay.setOverlayWidthInMeters(self.handle, 1.1)
-            m = openvr.HmdMatrix34_t()
-            for r in range(3):
-                for c in range(4):
-                    m.m[r][c] = 1.0 if r == c else 0.0
-            m.m[1][3] = -0.05   # just below centre
-            m.m[2][3] = -1.4    # 1.4 m in front
-            self.overlay.setOverlayTransformTrackedDeviceRelative(
-                self.handle, openvr.k_unTrackedDeviceIndex_Hmd, m)
+            self._place_for("resolution")
         except Exception:
             self.handle = None
+
+    def _place_for(self, test):
+        """Position the chart and size it for the job.
+
+        The FOV/fit chart fills most of the view, straight ahead, so its edge
+        ring + corner notches sit near your *visible field edge* — that's what
+        lets you judge strap/spacer fit. The other three charts are a handy
+        card, slightly below centre, for judging centre sharpness/alignment.
+        """
+        wide = test == "fov"
+        dist = 1.3 if wide else 1.4
+        width = 3.6 if wide else 1.2
+        self.overlay.setOverlayWidthInMeters(self.handle, width)
+        m = self.openvr.HmdMatrix34_t()
+        for r in range(3):
+            for c in range(4):
+                m.m[r][c] = 1.0 if r == c else 0.0
+        if not wide:
+            m.m[1][3] = -0.05   # just below centre
+        m.m[2][3] = -dist       # straight ahead, in front
+        self.overlay.setOverlayTransformTrackedDeviceRelative(
+            self.handle, self.openvr.k_unTrackedDeviceIndex_Hmd, m)
 
     def show(self, test, fineness=1):
         if self.handle is None:
             return False
         try:
+            self._place_for(test)
             # Rendering needs a QGuiApplication for text; the app has one when
             # it reaches here, but stay self-sufficient if called elsewhere.
             from PySide6.QtGui import QGuiApplication

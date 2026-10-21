@@ -167,6 +167,28 @@ def test_render_each_chart_returns_texture(qapp):
         assert len(buf) == cal.W * cal.H * 4
 
 
+def test_fov_overlay_is_view_filling(qapp, monkeypatch):
+    """The FOV/fit chart is placed as a wide, view-filling panel (for judging the
+    field edge), not a small floating card like the other charts."""
+    from frameassist.calibrate import CalibrationOverlay
+    from .fake_openvr import make_openvr
+    vr = make_openvr()
+    overlay = vr.VROverlay()
+    widths = []
+    monkeypatch.setattr(overlay, "setOverlayWidthInMeters",
+                        lambda *a: widths.append(a[1]))
+
+    ov = CalibrationOverlay(vr)
+    widths.clear()
+    ov.show("resolution", 1)
+    w_card = widths[-1] if widths else 0.0
+    widths.clear()
+    ov.show("fov", 1)
+    w_fov = widths[-1]
+    assert w_fov > w_card * 2   # FOV is much larger than the card charts
+    assert w_fov >= 3.0         # fills most of the view
+
+
 def test_render_invalid_chart_raises(qapp):
     import pytest
     pytest.importorskip("PySide6")
