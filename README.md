@@ -338,6 +338,12 @@ wheel and talk:
   IPD the bars look centred and single.
 - **Sweet spot** — fine centre detail plus corner markers to find your best lens
   position.
+- **FOV / fit** — an edge ring with ticks and corner notches; adjust the head
+  strap and spacers until the ring looks even and centred, and the centre stays
+  crisp. This chart fills the whole view (its edge sits near your real field
+  edge); the other three show as a card.
+
+![FOV / fit calibration chart](docs/media/calibrate-fov.png)
 
 Navigation reuses your gestures: **quickly press (click) the right stick =
 next**, **the left stick = back**, and talking to the chart works too — "finer", "coarser", "next", and
