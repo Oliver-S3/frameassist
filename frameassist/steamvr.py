@@ -117,6 +117,13 @@ def write_vrmanifest():
         "launch_type": "binary",
         "arguments": args,
         "is_dashboard_overlay": True,
+        # Give the app a tile icon in SteamVR's running-apps dock / dashboard.
+        # Without an image_path SteamVR falls back to a generic "(?)" tile even
+        # though the desktop-launcher icon is fine. image_path is the full-size
+        # tile image; icon_path a small square variant. Both point at the PNG
+        # shipped inside the installed package.
+        "image_path": str(Path(__file__).parent / "icon.png"),
+        "icon_path": str(Path(__file__).parent / "icon.png"),
         "action_manifest_path": str(HERE / "actions.json"),
         "strings": {"en_us": {"name": "FrameAssist",
                               "description": "Hold both grips and talk"}},
