@@ -57,6 +57,11 @@ def _style(app):
         QLabel#status {{ color: {MUTED}; }}
         QLabel#last {{ background: {CARD}; border-radius: 10px; padding: 12px; }}
         QLabel#muted {{ color: {MUTED}; font-size: 13px; }}
+        QCheckBox {{ spacing: 10px; }}
+        QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid #3c4759;
+                                border-radius: 4px; background: {CARD}; }}
+        QCheckBox::indicator:hover {{ border-color: {ACCENT}; }}
+        QCheckBox::indicator:checked {{ background: {ACCENT}; border-color: {ACCENT}; }}
     """)
 
 
@@ -164,9 +169,20 @@ class SettingsDialog(QDialog):
         self.delivery.currentIndexChanged.connect(self._update_host_visibility)
         self._update_host_visibility()
 
-        self.in_games = QCheckBox("Keep shortcuts on during VR games")
+        self.in_games = QCheckBox("Dictate during VR games")
         self.in_games.setChecked(cfg.get("in_games", False))
+        self.in_games.setToolTip(
+            "Off by default: while a VR game is running the grips are left to the "
+            "game, so holding both does nothing and a squeeze never interrupts play. "
+            "Turn this on if you want dictation while playing.")
         form.addRow("Buttons", self.in_games)
+        in_games_hint = QLabel(
+            "Off by default — in a game the grips are left alone, so holding "
+            "them never interrupts play.")
+        in_games_hint.setWordWrap(True)
+        in_games_hint.setObjectName("muted")
+        in_games_hint.setToolTip(self.in_games.toolTip())
+        form.addRow("", in_games_hint)
 
         self.rest_stream = QCheckBox("Rest shortcuts while a PC is streamed in")
         self.rest_stream.setChecked(cfg.get("rest_while_streaming", False))
@@ -436,8 +452,9 @@ class MainWindow(QMainWindow):
             "⏎ <b>Send / Escape</b><br>"
             "Flick the right stick to send (Enter); flick the left stick for Escape.<br><br>"
             "🔒 <b>Private & offline</b><br>"
-            "Speech runs on your headset. In games the buttons rest unless you turn on "
-            "“Keep shortcuts on during VR games” in Settings.<br><br>"
+            "Speech runs on your headset. In games the grips rest by default — "
+            "holding both does nothing, so a squeeze never interrupts play. Turn on "
+            "“Dictate during VR games” in Settings if you want dictation there.<br><br>"
             "Every dictation is also copied to the clipboard, so you can paste it anywhere."
         )
         text.setWordWrap(True)

@@ -22,7 +22,7 @@ printf '\n\033[1mFrameAssist uninstall\033[0m\n'
 
 # Stop any running copy and the service.
 pkill -f "frameassist/venv/bin/(frameassist|python[0-9.]* -m frameassist)" 2>/dev/null || true
-local rt="/run/user/$(id -u)"
+rt="/run/user/$(id -u)"
 if [[ -S "$rt/bus" ]]; then
   XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" systemctl --user disable --now frameassist.service 2>/dev/null || true
   XDG_RUNTIME_DIR="$rt" DBUS_SESSION_BUS_ADDRESS="unix:path=$rt/bus" systemctl --user daemon-reload 2>/dev/null || true
