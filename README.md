@@ -235,12 +235,13 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    > then run the line again.
 3. *(Optional, recommended)* **Enable the Check for updates button.** Install with
    your repo URL set so the app knows where to look for new versions, then it
-   checks `<base>/raw/<branch>/version.json` and updates itself from the repo:
+   checks `<base>/raw/<branch>/version.json` and updates itself from the repo.
+   This single line downloads *and* runs the installer, so you can copy and paste
+   it on its own (no local `install.sh` needed):
    ```bash
-   FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist ./install.sh
+   curl -fsSL https://raw.githubusercontent.com/Oliver-S3/frameassist/main/install.sh | FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist bash
    ```
-   (For example: `FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist ./install.sh`
-   — see [Updates and the update button](#updates) for Gitea vs GitHub URL forms.)
+   (See [Updates and the update button](#updates) for Gitea vs GitHub URL forms.)
    Without it, Settings → Check for updates simply says no update source is
    configured. See [Updates](#updates).
 
