@@ -27,8 +27,9 @@ def test_single_copy_per_role(tmp_path, monkeypatch):
 
     _helper = (
         "import sys;"
+        "from pathlib import Path;"
         "from frameassist import service as s;"
-        "s.state_dir = lambda: sys.argv[1];"
+        "s.state_dir = lambda: Path(sys.argv[1]);"
         "print('HELD' if s.hold_lock('background') else 'LOSER')"
     )
 
@@ -37,8 +38,16 @@ def test_single_copy_per_role(tmp_path, monkeypatch):
                       capture_output=True, text=True, timeout=10)
         return proc.stdout.strip()
 
+    def second_copy_loses(path):
+        proc = sp.run([sys.executable, "-c", _helper, str(path)],
+                      capture_output=True, text=True, timeout=10)
+        assert proc.stdout.strip() == "LOSER", (
+            f"expected second copy to lose; stdout={proc.stdout!r} "
+            f"stderr={proc.stderr!r} rc={proc.returncode}")
+        return True
+
     assert s.hold_lock("background") is True           # first copy holds it
-    assert second_copy(tmp_path) == "LOSER"            # second copy loses
+    second_copy_loses(tmp_path)                         # second copy loses
     s.release_lock("background")
     assert second_copy(tmp_path) == "HELD"             # after release it can
     assert s.hold_lock("background") is True
