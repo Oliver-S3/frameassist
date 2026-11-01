@@ -57,6 +57,7 @@ def _style(app):
         QLabel#status {{ color: {MUTED}; }}
         QLabel#last {{ background: {CARD}; border-radius: 10px; padding: 12px; }}
         QLabel#muted {{ color: {MUTED}; font-size: 13px; }}
+        QLabel#warn {{ color: #ffb859; font-size: 13px; font-weight: 600; }}
         QCheckBox {{ spacing: 10px; }}
         QCheckBox::indicator {{ width: 16px; height: 16px; border: 1px solid #3c4759;
                                 border-radius: 4px; background: {CARD}; }}
@@ -230,7 +231,21 @@ class SettingsDialog(QDialog):
 
         version_label = QLabel(f"FrameAssist {__version__}")
         version_label.setObjectName("muted")
-        form.addRow(version_label)
+        version_label.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        echo_note = QLabel(
+            "Tip: Don't leave this window open while dictating — close it "
+            "(Save or Cancel) when you're done, or your speech can echo / "
+            "come out twice.")
+        echo_note.setObjectName("warn")
+        echo_note.setWordWrap(True)
+        echo_note.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        bottom_row = QHBoxLayout()
+        bottom_row.addWidget(version_label, 0)
+        bottom_row.addSpacing(16)
+        bottom_row.addWidget(echo_note, 1)
+        form.addRow(bottom_row)
 
     def _check_update(self):
         from .update import run_self_update
