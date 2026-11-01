@@ -16,12 +16,32 @@ from frameassist import service as s  # noqa: E402
 
 
 def test_single_copy_per_role(tmp_path, monkeypatch):
+    """Holding the same role in two separate processes must allow only one.
+
+    hold_lock is idempotent within a single process (a process that already
+    holds the role re-enters it), so a "second copy" must be a genuinely
+    separate OS process whose flock against the same lock file loses.
+    """
+    import subprocess as sp
     monkeypatch.setattr(s, "state_dir", lambda: tmp_path)
-    assert s.hold_lock("background") is True
-    assert s.hold_lock("background") is False  # second copy loses
+
+    _helper = (
+        "import sys;"
+        "from frameassist import service as s;"
+        "s.state_dir = lambda: sys.argv[1];"
+        "print('HELD' if s.hold_lock('background') else 'LOSER')"
+    )
+
+    def second_copy(path):
+        proc = sp.run([sys.executable, "-c", _helper, str(path)],
+                      capture_output=True, text=True, timeout=10)
+        return proc.stdout.strip()
+
+    assert s.hold_lock("background") is True           # first copy holds it
+    assert second_copy(tmp_path) == "LOSER"            # second copy loses
     s.release_lock("background")
+    assert second_copy(tmp_path) == "HELD"             # after release it can
     assert s.hold_lock("background") is True
-    s.release_lock("background")
 
 
 def test_window_link_handoff(tmp_path, monkeypatch):

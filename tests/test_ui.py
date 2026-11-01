@@ -150,13 +150,16 @@ def test_run_window_wiring_smoke(monkeypatch):
 
     from frameassist import service
     from frameassist import app as app_mod
+    from PySide6.QtWidgets import QApplication
 
     monkeypatch.setattr(service, "status", lambda *a, **k: None)
     monkeypatch.setattr(service, "Link", type("Link", (), {"open": staticmethod(
         lambda *a, **k: None)}))
 
     # Don't wait on the real event loop or touch real SteamVR hardware/files.
-    monkeypatch.setattr(app_mod.QApplication, "exec", lambda self: 0)
+    # run_window imports QApplication locally, so patch the class method it
+    # actually calls rather than an (absent) module attribute.
+    monkeypatch.setattr(QApplication, "exec", lambda self: 0)
     monkeypatch.setattr(app_mod, "_install_kwin_rule", lambda: None)
 
     cfg = {"model": "base.en", "add_space": True, "in_games": False,

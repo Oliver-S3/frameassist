@@ -69,10 +69,16 @@ def _neutralise_env_checks(monkeypatch, tmp_path):
     """Make _check's environment-dependent probes pass on this (Windows) box so
     the return code reflects only the streamed-PC line we're testing."""
     from frameassist import autostart, config, linux_input
+    import sys, types
     monkeypatch.setattr(linux_input, "UInputKeyboard", lambda *a, **k: _OKDevice())
     monkeypatch.setattr(autostart, "available", lambda: True)
     monkeypatch.setattr(autostart, "enabled", lambda: True)
     monkeypatch.setattr(config, "words_file", lambda *a, **k: tmp_path / "words.txt")
+    # _check also probes the native speech/openvr libraries, which are
+    # environment-dependent (notably flaky on the ARM CI leg). Stub the
+    # imports so _check reports them OK and rc reflects only the host line.
+    monkeypatch.setitem(sys.modules, "faster_whisper", types.ModuleType("faster_whisper"))
+    monkeypatch.setitem(sys.modules, "openvr", types.ModuleType("openvr"))
 
 
 def test_host_test_cli_reachable(monkeypatch, capsys):
