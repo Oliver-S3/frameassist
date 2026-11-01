@@ -202,11 +202,17 @@ def test_vrmanifest_uses_platform_binary_path_key(tmp_path, monkeypatch):
     assert "binary_path_linux_arm" in app or "binary_path_linux" in app
     assert str(app["action_manifest_path"]).endswith("actions.json")
     # The installed package ships an icon so SteamVR's running-apps dock shows a
-    # real tile instead of a "(?)" placeholder.
-    assert app.get("image_path", "").endswith("icon.png"), \
-        "manifest must point image_path at the bundled icon.png"
+    # real tile instead of a "(?)" placeholder. image_path is the full-size WIDE
+    # dashboard tile — SteamVR's dashboard capsule is 460x215, and a square
+    # image fails to render in the dock — so it points at the bundled
+    # capsule.png. icon_path is the small square variant (icon.png).
     import os
-    assert os.path.exists(app["image_path"]), "bundled icon.png must exist on disk"
+    assert app.get("image_path", "").endswith("capsule.png"), \
+        "manifest must point image_path at the bundled wide capsule.png"
+    assert os.path.exists(app["image_path"]), "bundled capsule.png must exist on disk"
+    assert app.get("icon_path", "").endswith("icon.png"), \
+        "manifest must point icon_path at the bundled square icon.png"
+    assert os.path.exists(app["icon_path"]), "bundled icon.png must exist on disk"
 
 
 # -- Engine-level --------------------------------------------------------------
