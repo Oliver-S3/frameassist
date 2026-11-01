@@ -136,14 +136,16 @@ class _Connector:
         return self.windows > 0
 
     def _accept(self):
-        try:
-            conn, _ = self.sock.accept()
-        except OSError:
-            return
-        if not same_user(conn):
-            conn.close()
-            return
-        threading.Thread(target=self._serve, args=(conn,), daemon=True).start()
+        while True:
+            try:
+                conn, _ = self.sock.accept()
+            except OSError:
+                return
+            if not same_user(conn):
+                conn.close()
+                continue
+            daemon = threading.Thread(target=self._serve, args=(conn,), daemon=True)
+            daemon.start()
 
     def _serve(self, conn):
         window = quit_all = False
