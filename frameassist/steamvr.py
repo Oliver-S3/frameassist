@@ -258,6 +258,7 @@ class SteamVR:
         elif not on and self.mic is not None:
             try:
                 self.mic.destroy()
+                log.info("window mics disabled")
             except Exception as err:
                 log.warning("window mics failed to stop: %r", err)
             try:

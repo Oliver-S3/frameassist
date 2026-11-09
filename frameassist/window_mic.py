@@ -75,6 +75,14 @@ CLICK_S = 0.30
 # Controller cadences and caps (ported from the 1.4.2 line).
 SCAN_S = 1.5        # rescan cadence for new/closed floating windows
 MAX_MICS = 16       # cap on simultaneously live mic overlays
+# The service's OverlayApi can go stale while its process lives on: after
+# headset sleep / SteamVR session churn, FindOverlay keeps returning nothing
+# for NEW windows while a fresh process sees them (observed 2026-11-09
+# 18:33: the service never found window.58 until it was restarted). Heal by
+# rebuilding the api after a long zero-window drought; mics are re-created
+# from the persistent overlay keys on the next scan.
+REBUILD_AFTER_S = 60.0
+HEARTBEAT_S = 60.0  # alive-log cadence so silence is never ambiguous again
 PULSE_S = 0.25      # one recording-ring animation phase
 HOVER_TTL = 0.5     # a mouse-move keeps a mic highlighted this long
 MAX_TAKE_S = 300.0  # safety cap: force-stop a take left open this long
@@ -503,7 +511,8 @@ class WindowMic:
     """
 
     def __init__(self, api, app_key, on_command=None, can_act=None,
-                 engine_state=None, clock=time.monotonic, enabled=True):
+                 engine_state=None, clock=time.monotonic, enabled=True,
+                 api_factory=None):
         self.api = api
         self.app_key = app_key
         self.on_command = on_command or (lambda cmd, seq: None)
@@ -511,6 +520,7 @@ class WindowMic:
         self.engine_state = engine_state or (lambda: None)
         self.clock = clock
         self.enabled = bool(enabled)
+        self.api_factory = api_factory or OverlayApi
         self._mics = {}            # seq -> _Mic
         self._last_scan = 0.0
         self._seen_logged = None   # last window set we logged
@@ -519,6 +529,8 @@ class WindowMic:
         self._take_since = 0.0
         self._pressed_at = None
         self._last_tick = None
+        self._empty_since = None   # first scan of the current zero-window run
+        self._last_beat = None     # last heartbeat log
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -567,12 +579,30 @@ class WindowMic:
         if now - self._last_scan < SCAN_S:
             return
         self._last_scan = now
+        if self._last_beat is None or now - self._last_beat >= HEARTBEAT_S:
+            self._last_beat = now
+            log.info("floating mics: alive, windows=%s, mics=%s",
+                     sorted(self._seen_logged or []) or "none",
+                     len(self._mics))
         windows = self._scan_windows()
         seen = set(windows)
         if seen != self._seen_logged:
             log.info("floating mics: gamescope windows: %s",
                      sorted(seen) or "none")
             self._seen_logged = set(seen)
+
+        if not windows:
+            # Stale-api watchdog: a healthy runtime with no windows floating
+            # looks identical to a dead api, so after a long drought rebuild
+            # the api once per drought. When windows ARE present the api is
+            # demonstrably alive and we never rebuild.
+            if self._empty_since is None:
+                self._empty_since = now
+            elif now - self._empty_since >= REBUILD_AFTER_S:
+                self._rebuild_api(now)
+                return
+        else:
+            self._empty_since = None
 
         keep = {s: m for s, m in self._mics.items() if s in windows}
         for seq, handle in windows.items():
@@ -591,6 +621,31 @@ class WindowMic:
                 self._remove_mic(seq)
                 log.info("floating mics: removed mic for window.%s", seq)
         self._mics = keep
+
+    def _rebuild_api(self, now):
+        """Replace a suspect overlay api. Runs only after REBUILD_AFTER_S of
+        continuous zero-window scans, so a healthy api with nothing floating
+        gets rebuilt at most once per minute (harmless: init/shutdown cycles
+        are proven cheap on this runtime)."""
+        log.info("floating mics: no windows for %.0fs - rebuilding the "
+                 "overlay api", REBUILD_AFTER_S)
+        self._empty_since = now   # next rebuild no sooner than another drought
+        self._seen_logged = None  # force the next scan to log its result
+        for seq in list(self._mics):
+            self._remove_mic(seq)
+        self._mics = {}
+        fresh = None
+        try:
+            fresh = self.api_factory()
+        except Exception as err:
+            log.warning("floating mics: api rebuild failed: %s", err)
+        if fresh is not None:
+            old, self.api = self.api, fresh
+            try:
+                old.close()
+            except Exception:
+                pass
+            log.info("floating mics: overlay api rebuilt")
 
     def _create_mic(self, seq, win_handle):
         key = f"{self.app_key}.mic.{seq}"

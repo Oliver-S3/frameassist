@@ -205,6 +205,52 @@ def test_mic_key_uses_app_key_and_seq():
     assert mic._mics[7].key == "frameassist.voicetyping.mic.7"
 
 
+def test_stale_api_is_rebuilt_after_a_zero_window_drought():
+    """Regression: the service's OverlayApi went stale while its process
+    lived on (headset sleep / SteamVR session churn) and FindOverlay kept
+    returning nothing for NEW windows - the mic never appeared until the
+    service was restarted (2026-11-09 18:33). The controller must notice a
+    long zero-window drought and rebuild the api."""
+    made = []
+
+    def factory():
+        fresh = FakeApi()
+        made.append(fresh)
+        return fresh
+
+    api = FakeApi()
+    made.append(api)
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
+                       api_factory=factory)
+    clock = mic.clock
+    # Drought: no windows at all.
+    clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
+    mic.tick(clock())
+    assert len(made) == 1, "no rebuild before the drought threshold"
+    clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
+    mic.tick(clock())
+    assert len(made) == 2, "api was not rebuilt after the drought"
+    assert mic.api is made[1]
+    # A window appearing right after the rebuild is found with the new api.
+    made[1].add_window(9)
+    clock.advance(wm.SCAN_S + 0.1)
+    mic.tick(clock())
+    assert 9 in mic._mics
+
+
+def test_live_api_is_never_rebuilt_while_windows_exist():
+    api = FakeApi()
+    api.add_window(5)
+    calls = []
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
+                       api_factory=lambda: calls.append(1) or FakeApi())
+    clock = mic.clock
+    for _ in range(120):
+        clock.advance(wm.REBUILD_AFTER_S / 60)
+        mic.tick(clock())
+    assert calls == [], "api rebuilt even though windows were present"
+
+
 def test_max_mics_cap():
     api = FakeApi()
     for seq in range(1, wm.MAX_MICS + 5):
