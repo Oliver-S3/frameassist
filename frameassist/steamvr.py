@@ -148,12 +148,13 @@ class SteamVR:
 
     def __init__(self, on_status=lambda text: None,
                  in_games=False, rest_while_streaming=False,
-                 autolaunch=True, clock=None):
+                 autolaunch=True, clock=None, window_mic=False):
         self.on_status = on_status
         self.in_games = in_games
         self.rest_while_streaming = rest_while_streaming
         self.autolaunch = autolaunch
         self.clock = clock or time.monotonic
+        self.window_mic = bool(window_mic)
         self.connected = False
         self._stop = False
         self.hold = False
@@ -162,9 +163,11 @@ class SteamVR:
         self._requests = []
         self._warned = set()
         self.engine = None
+        self.engine_state = None   # latest engine state string, for the mic face
         self._prev_held = set()
         self.vr = None
         self.badge = None
+        self.mic = None            # frameassist.window_mic.WindowMic (optional)
         # Read-only controller buttons from SteamVR's own web-socket stream
         # (vrws.py). It reports grips/sticks in any context — including the
         # Frame's desktop/UI, where SteamVR Input won't route overlay-global
@@ -198,11 +201,15 @@ class SteamVR:
     def stop(self):
         self._stop = True
 
-    def set_options(self, in_games=None, rest_while_streaming=None):
+    def set_options(self, in_games=None, rest_while_streaming=None,
+                    window_mic=None):
         if in_games is not None:
             self.in_games = in_games
         if rest_while_streaming is not None:
             self.rest_while_streaming = rest_while_streaming
+        if window_mic is not None:
+            self.window_mic = bool(window_mic)
+            self._sync_mic()
 
     def set_autolaunch(self, on):
         self.autolaunch = on
@@ -214,6 +221,50 @@ class SteamVR:
     def show_state(self, state, message=""):
         self._badge = (state, message)
         self._badge_dirty = True
+        # Choke point for engine state: lets the floating mic refuse new takes
+        # while an engine take is decoding ("working" / "error").
+        self.engine_state = state
+
+    def _mic_can_act(self):
+        if self.engine is None or self.paused or self.hold:
+            return False
+        if self.engine_state in ("working", "error"):
+            return False
+        return True
+
+    def _sync_mic(self):
+        """Start/stop the per-window mic overlays to match self.window_mic."""
+        on = self.window_mic
+        if on and self.mic is None:
+            if self.vr is None:
+                return  # no SteamVR session yet; retried on the next toggle
+            try:
+                from . import window_mic as wm
+                reason = wm.unavailable_reason()
+                if reason:
+                    log.warning("window mic unavailable: %s", reason)
+                    return
+                api = wm.OverlayApi()
+                self.mic = wm.WindowMic(
+                    api, APP_KEY,
+                    on_command=lambda cmd, _seq: self.send_command(cmd),
+                    can_act=self._mic_can_act,
+                    engine_state=lambda: self.engine_state,
+                    enabled=True)
+                log.info("window mics enabled")
+            except Exception as err:
+                log.warning("window mics failed to start: %r", err)
+                self.mic = None
+        elif not on and self.mic is not None:
+            try:
+                self.mic.destroy()
+            except Exception as err:
+                log.warning("window mics failed to stop: %r", err)
+            try:
+                self.mic.api.close()
+            except Exception:
+                pass
+            self.mic = None
 
     def open_bindings(self):
         if not self.connected:
@@ -276,6 +327,7 @@ class SteamVR:
             waiting_logged = False
             try:
                 self.open(openvr)
+                self._sync_mic()
                 while not self._stop and not self.hold and self.step():
                     time.sleep(1 / 60)
             except Exception as err:
@@ -283,6 +335,16 @@ class SteamVR:
                 self._set_status("error", f"SteamVR error: {err}")
             finally:
                 self.connected = False
+                try:
+                    if self.mic is not None:
+                        self.mic.destroy()
+                        try:
+                            self.mic.api.close()
+                        except Exception:
+                            pass
+                        self.mic = None
+                except Exception:
+                    pass
                 try:
                     openvr.shutdown()
                 except Exception:
@@ -482,6 +544,8 @@ class SteamVR:
             self.badge.show(*self._badge)
         if self.badge:
             self.badge.tick()
+        if self.mic:
+            self.mic.tick(now)
         return True
 
     def _emit(self, buttons, now):

@@ -20,6 +20,20 @@ from . import __version__
 from .config import DEFAULTS, MODELS, load, save
 from .engine import ERROR, LISTENING, READY, WORKING
 
+
+def window_mic_unavailable_reason():
+    """Why the window-mic toggle cannot be enabled here, or None.
+
+    Imported lazily so headless tests never need the module's ctypes paths
+    resolved... they are plain Path checks, but keep the import local anyway
+    so a partially-installed package still opens Settings.
+    """
+    try:
+        from .window_mic import unavailable_reason
+        return unavailable_reason()
+    except Exception:
+        return "window mic module failed to load"
+
 DARK_BG = "#0d1016"
 CARD = "#161b24"
 TEXT = "#eef1f6"
@@ -198,6 +212,24 @@ class SettingsDialog(QDialog):
         self.autostart.setChecked(cfg.get("autostart", True))
         form.addRow("", self.autostart)
 
+        self.window_mic = QCheckBox("Show a mic button on floating windows")
+        self.window_mic.setChecked(cfg.get("window_mic", False))
+        self.window_mic.setToolTip(
+            "Pins a small mic to the bottom-right of each floating window. "
+            "Hold it with the laser to dictate into that window; a quick tap "
+            "latches recording until the next click. Off by default.")
+        form.addRow("Window mic", self.window_mic)
+        self._window_mic_reason = window_mic_unavailable_reason()
+        if self._window_mic_reason:
+            self.window_mic.setEnabled(False)
+            self.window_mic.setToolTip(
+                f"Unavailable: {self._window_mic_reason}")
+            window_mic_hint = QLabel(
+                f"Unavailable on this device: {self._window_mic_reason}.")
+            window_mic_hint.setWordWrap(True)
+            window_mic_hint.setObjectName("muted")
+            form.addRow("", window_mic_hint)
+
         update_row = QHBoxLayout()
         self.update_btn = QPushButton("Check for updates")
         self.update_btn.clicked.connect(self._check_update)
@@ -308,6 +340,7 @@ class SettingsDialog(QDialog):
             "in_games": self.in_games.isChecked(),
             "rest_while_streaming": self.rest_stream.isChecked(),
             "autostart": self.autostart.isChecked(),
+            "window_mic": self.window_mic.isChecked(),
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),
             "ai_base_url": self.ai_base_url.text().strip(),
