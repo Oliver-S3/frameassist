@@ -83,7 +83,12 @@ SORT_ORDER = 80
 
 # Plate geometry. Texture is 5:3, so the plate is 5 cm by 3 cm.
 PLATE_METERS = 0.05
+# The probed quad is WIDER than the visible glass (proven 2026-11-09: a marker
+# at the computed corner rendered ~60-80 px outside the right edge), so the
+# inset is a fraction of the quad width, tuned so the plate lands just inside
+# the visible bottom-right corner.
 RIGHT_INSET = PLATE_METERS / 2 + 0.02
+INSIDE_FRACTION = 0.06   # pull the plate this fraction of the quad width inward
 BELOW = 0.03
 # Along the facing axis, which points at the viewer on these windows.
 TOWARD_VIEWER = 0.005
@@ -233,7 +238,8 @@ def corner_target(center, width, height, right_u, up_u, facing,
     edge, nudged toward the viewer.
     """
     fx, fy = factor
-    inset = min(RIGHT_INSET, width * fx * 0.35)
+    inset = min(RIGHT_INSET + width * fx * INSIDE_FRACTION,
+                width * fx * 0.35)
     return tuple(
         center[row]
         + right_u[row] * (width * fx / 2 - inset)
@@ -770,10 +776,14 @@ class WindowMic:
 # Procedural texture (no Qt): handheld mic on a plate, RGBA bytes
 # --------------------------------------------------------------------------
 
-_PLATE = {"idle": (35, 40, 51), "hover": (48, 55, 68),
-          "recording": (197, 40, 58), "busy": (179, 128, 42)}
-_GLYPH = {"idle": (238, 241, 246), "hover": (238, 241, 246),
-          "recording": (255, 255, 255), "busy": (238, 241, 246)}
+_PLATE = {"idle": (44, 52, 66), "hover": (58, 68, 86),
+          "recording": (220, 46, 64), "busy": (214, 152, 48)}
+_GLYPH = {"idle": (240, 244, 250), "hover": (240, 244, 250),
+          "recording": (255, 255, 255), "busy": (250, 250, 250)}
+# Bright rim so the dark plate reads against a dim room (the 1.4.2 lesson:
+# a near-black plate is invisible; the old pill was bright orange).
+_RIM = {"idle": (46, 230, 184), "hover": (46, 230, 184),
+        "recording": (255, 255, 255), "busy": (255, 210, 120)}
 
 
 def render_mic(kind, hover, phase, w, h):
@@ -785,7 +795,8 @@ def render_mic(kind, hover, phase, w, h):
     """
     plate = _PLATE.get(kind, _PLATE["idle"])
     glyph = _GLYPH.get(kind, _GLYPH["idle"])
-    ring = (255, 255, 255) if hover else (255, 151, 161)
+    rim = _RIM.get(kind, _RIM["idle"])
+    ring = (255, 255, 255) if hover else rim
 
     cx, cy = w / 2.0, h / 2.0
     # Plate: filled ellipse with a 2 px transparent margin.
