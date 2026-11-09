@@ -255,6 +255,8 @@ class SteamVR:
             except Exception as err:
                 log.warning("window mics failed to start: %r", err)
                 self.mic = None
+        elif on and self.mic is not None:
+            log.info("window mics kept (already running)")
         elif not on and self.mic is not None:
             try:
                 self.mic.destroy()
@@ -344,16 +346,22 @@ class SteamVR:
                 self._set_status("error", f"SteamVR error: {err}")
             finally:
                 self.connected = False
-                try:
-                    if self.mic is not None:
-                        self.mic.destroy()
-                        try:
-                            self.mic.api.close()
-                        except Exception:
-                            pass
-                        self.mic = None
-                except Exception:
-                    pass
+                # Tear the mic down unconditionally: a half-failed destroy
+                # must never leave a stale object behind, or the next
+                # session's _sync_mic sees mic is not None, no-ops, and the
+                # mic silently never ticks again (live 2026-11-09 18:46:
+                # heartbeats stopped the moment a session cycled and the mic
+                # never came back until the next service restart).
+                mic, self.mic = self.mic, None
+                if mic is not None:
+                    try:
+                        mic.destroy()
+                    except Exception as err:
+                        log.warning("window mic destroy failed: %r", err)
+                    try:
+                        mic.api.close()
+                    except Exception:
+                        pass
                 try:
                     openvr.shutdown()
                 except Exception:
