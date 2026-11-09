@@ -289,19 +289,25 @@ class OverlayApi:
 
     def __init__(self, lib_path=None, shim_path=None):
         self.lib = ctypes.CDLL(str(lib_path or OPENVR_LIB))
+        # VR_InitInternal returns a 64-bit init token. Wrapping it in a
+        # CFUNCTYPE with a c_uint32 restype TRUNCATES that token and the
+        # runtime then SEGVs later (proven on the Frame 2026-11-09): set
+        # argtypes/restype on the lib functions directly instead.
         err = ctypes.c_int(0)
-        init = ctypes.CFUNCTYPE(ctypes.c_uint32, ctypes.POINTER(ctypes.c_int),
-                                ctypes.c_int)(self.lib.VR_InitInternal)
-        rc = init(ctypes.byref(err), VR_APPLICATION_OVERLAY)
+        self.lib.VR_InitInternal.argtypes = [
+            ctypes.POINTER(ctypes.c_int), ctypes.c_int]
+        self.lib.VR_InitInternal.restype = ctypes.c_void_p
+        self.lib.VR_InitInternal(ctypes.byref(err), VR_APPLICATION_OVERLAY)
         if err.value != 0:
-            raise RuntimeError(f"VR_InitInternal failed: {err.value} (rc {rc})")
+            raise RuntimeError(f"VR_InitInternal failed: {err.value}")
         self._inited = True
 
-        get_iface = ctypes.CFUNCTYPE(
-            ctypes.c_void_p, ctypes.c_char_p, ctypes.POINTER(ctypes.c_int))(
-            self.lib.VR_GetGenericInterface)
+        self.lib.VR_GetGenericInterface.argtypes = [
+            ctypes.c_char_p, ctypes.POINTER(ctypes.c_int)]
+        self.lib.VR_GetGenericInterface.restype = ctypes.c_void_p
         iface_err = ctypes.c_int(0)
-        table = get_iface(OVERLAY_VERSION, ctypes.byref(iface_err))
+        table = self.lib.VR_GetGenericInterface(OVERLAY_VERSION,
+                                                ctypes.byref(iface_err))
         if not table or iface_err.value != 0:
             self.close()
             raise RuntimeError(
