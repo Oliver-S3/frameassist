@@ -71,6 +71,19 @@ fi
 "$VENV/bin/python" -c "import openvr" 2>/dev/null && ok "SteamVR support ready" \
   || warn "SteamVR library didn't load; controller shortcuts won't work."
 
+# Optional: build the native shim for the per-window mic (Settings toggle).
+# The shim is tiny and headerless; a missing compiler or a failed build just
+# leaves the feature off — it must never fail the install.
+if [[ "$(uname -m)" == "aarch64" ]] && [[ -f "$SRC/frameassist/overlay_point.c" ]]; then
+  PKG_DIR="$("$VENV/bin/python" -c 'import importlib.util,os;print(os.path.dirname(importlib.util.find_spec("frameassist").origin))')"
+  if command -v gcc >/dev/null 2>&1 \
+     && gcc -shared -fPIC -O2 -o "$PKG_DIR/overlay_point.so" "$SRC/frameassist/overlay_point.c" 2>/dev/null; then
+    ok "Window-mic helper built"
+  else
+    warn "gcc not found (or build failed); the window-mic toggle stays off."
+  fi
+fi
+
 # 3. Speech model ----------------------------------------------------------------
 bold "3/5  Downloading the speech model (~140 MB, one time)"
 if "$VENV/bin/python" - <<'PY'
