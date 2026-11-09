@@ -44,6 +44,11 @@ DEFAULTS = {
     "host_addr": "",
     "host_port": 8763,
     "host_secret": "",
+    # Optional: a small mic button parked on the bottom-right of each floating
+    # (gamescope) window, so you can hold it with the laser to dictate into that
+    # window instead of using the grips. Opt-in and off by default; it needs the
+    # native overlay_point.so helper that install.sh builds.
+    "window_mic": False,
 }
 
 # Known keys, so an old config with a bad value is repaired, not trusted.
@@ -69,7 +74,7 @@ def load(path=None):
             cfg[key] = value
     if cfg["model"] not in MODELS:
         cfg["model"] = DEFAULTS["model"]
-    for key in ("autostart",):
+    for key in ("autostart", "window_mic"):
         cfg[key] = bool(cfg[key])
     try:
         cfg["host_port"] = int(cfg["host_port"])

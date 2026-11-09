@@ -1,10 +1,10 @@
 """FrameAssist: voice typing for the Steam Frame.
 
-Hold both grips, talk, let go — your words land in the focused text box.
+Hold both grips, talk, let go â€” your words land in the focused text box.
 Speech recognition runs on the headset; nothing leaves it (unless you switch
 on the optional AI polish, which sends the *text* through your own OpenRouter
 account).
 """
 
-__version__ = "1.3.5"
+__version__ = "1.3.6"
 __all__ = ["__version__"]
