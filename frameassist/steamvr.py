@@ -310,6 +310,14 @@ class SteamVR:
             if self.hold:
                 if self.status != "held":
                     self._set_status("held", "Paused while the app's window has the shortcuts.")
+                # The window mic must keep tracking while the GUI is open:
+                # its overlays are placed every tick, and a paused loop would
+                # leave them frozen in space while the user moves windows.
+                if self.mic is not None:
+                    try:
+                        self.mic.tick(self.clock())
+                    except Exception as err:
+                        log.warning("window mic tick (hold) failed: %r", err)
                 time.sleep(0.2)
                 continue
             try:
