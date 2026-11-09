@@ -651,7 +651,13 @@ class WindowMic:
                 if quad is None:
                     continue
                 width, height, right_u, up_u, facing = quad
-                center = [ll[i] + (lr[i] - ll[i]) / 2 + (ul[i] - ll[i]) / 2
+                # coords() returns a 12-float matrix; the translation lives
+                # at m[3], m[7], m[11]. Indexing m[0..2] reads the rotation
+                # row, which never moves - the mic then parks at a bogus pose
+                # and never tracks the window (live bug 2026-11-09).
+                center = [ll[3 + 4 * i]
+                          + (lr[3 + 4 * i] - ll[3 + 4 * i]) / 2
+                          + (ul[3 + 4 * i] - ll[3 + 4 * i]) / 2
                           for i in range(3)]
                 target = corner_target(center, width, height, right_u, up_u,
                                        facing)

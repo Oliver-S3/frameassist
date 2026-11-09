@@ -250,6 +250,37 @@ def test_position_reprobes_every_tick():
     assert second != first
 
 
+def test_position_tracks_the_window_translation():
+    """Regression: _position once read the rotation row (m[0..2]) instead of
+    the translations (m[3], m[7], m[11]) for the quad centre, so the mic
+    parked at a bogus pose and never followed the window (live 2026-11-09).
+    The old test only checked that the matrix changed, which the basis
+    vectors satisfied even while the translation stayed wrong."""
+    api = FakeApi()
+    api.add_window(49, ll=(-0.336, 0.791, -1.272))
+    mic, clock = make_mic(api)
+    mic.tick(clock())
+    handle = mic._mics[49].handle
+    # Move the window half a metre left, then let the ease settle.
+    api.add_window(49, ll=(-0.836, 0.791, -1.272))
+    for _ in range(120):
+        clock.advance(1 / 60)
+        mic.tick(clock())
+    got = api.absolutes[handle]
+    tx = (got[3], got[7], got[11])
+    info = api.windows[49]
+    quad = wm.quad_from_probe(info["ll"], info["lr"], info["ul"])
+    assert quad is not None
+    width, height, right_u, up_u, facing = quad
+    center = [info["ll"][3 + 4 * i]
+              + (info["lr"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
+              + (info["ul"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
+              for i in range(3)]
+    want = wm.corner_target(center, width, height, right_u, up_u, facing)
+    for g, w in zip(tx, want):
+        assert abs(g - w) < 0.005, (tx, want)
+
+
 def test_position_failure_is_warned_once_per_window():
     api = FakeApi()
     api.add_window(49)
