@@ -405,6 +405,21 @@ def _press(api, mic, clock, seq, hold_s):
     mic.tick(clock())
 
 
+def test_press_counts_even_when_the_button_field_is_noise():
+    """The laser trigger is the overlay's only button. The button-mask gate is
+    gone so a wrong/garbage field can never eat a press (that gate dropped
+    every other click before the 2026-11-10 VREvent layout fix)."""
+    api = FakeApi()
+    api.add_window(3)
+    commands = []
+    mic, clock = make_mic(api, commands=commands)
+    mic.tick(clock())
+    handle = mic._mics[3].handle
+    api.events[handle] = [{"type": wm.MOUSE_DOWN, "button": 1040000000}]
+    mic.tick(clock())
+    assert ("talk_start", 3) in commands
+
+
 def test_hold_dictates_then_release_types():
     api = FakeApi()
     api.add_window(3)

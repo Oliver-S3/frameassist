@@ -92,17 +92,20 @@ SORT_ORDER = 80
 
 # Plate geometry. Texture is 5:3, so the plate is 5 cm by 3 cm.
 PLATE_METERS = 0.05
-# The probed quad is WIDER than the visible glass (proven 2026-11-09: a marker
-# at the computed corner rendered ~60-80 px outside the right edge), so the
-# inset is a fraction of the quad width, tuned so the plate lands just inside
-# the visible bottom-right corner.
-RIGHT_INSET = PLATE_METERS / 2 + 0.02
-INSIDE_FRACTION = 0.03   # pull the plate this fraction of the quad width inward
-BELOW = 0.03
-# Along the facing axis, which points at the viewer on these windows.
-# 0.02 (not 0.005) so the plate clears the window surface during a resize,
-# when the probed quad is stale and the plate can otherwise clip through.
-TOWARD_VIEWER = 0.02
+# Live 2026-11-10: the plate belongs fully OUTSIDE the window's right edge.
+# Tucked inside the corner it sat right next to the grab bar SteamVR draws
+# under a floating window, so the user had to aim between two targets. This is
+# the clear gap between the window's visible right edge and the plate's near
+# edge (not a fraction of the quad - the probed quad is wider than the glass).
+PLATE_OUT_GAP = 0.05
+# Plate centre below the window's bottom edge; level with the corner was too
+# high next to the grab bar.
+PLATE_DROP = 0.06
+# Toward the viewer along the facing axis. Floating windows are CURVED while
+# the three-corner probe fits a FLAT quad; on that plane the plate - out past
+# the edge - sank behind the curved glass ("about 2 inches behind the plane of
+# the window"). Push it clearly out in front of the curved surface instead.
+PLATE_FRONT = 0.105
 
 # Easing. Short, so the mic stays on the glass during a stepped sample.
 SMOOTH_S = 0.01
@@ -245,17 +248,19 @@ def corner_target(center, width, height, right_u, up_u, facing,
                   factor=(1.0, 1.0)):
     """Centre of the mic plate for a window quad.
 
-    Anchored at the bottom-right: inset from the right edge, below the bottom
-    edge, nudged toward the viewer.
+    The plate hangs fully outside the bottom-right corner: its near edge is
+    PLATE_OUT_GAP clear of the window's right edge, it sits PLATE_DROP below
+    the bottom edge and PLATE_FRONT toward the viewer, so it clears the grab
+    bar under the window and floats in front of the curved glass.
     """
     fx, fy = factor
-    inset = min(RIGHT_INSET + width * fx * INSIDE_FRACTION,
-                width * fx * 0.35)
+    to_the_right = width * fx / 2 + PLATE_OUT_GAP + PLATE_METERS / 2
+    downward = height * fy / 2 + PLATE_DROP
     return tuple(
         center[row]
-        + right_u[row] * (width * fx / 2 - inset)
-        - up_u[row] * (height * fy / 2 + BELOW)
-        + facing[row] * TOWARD_VIEWER
+        + right_u[row] * to_the_right
+        - up_u[row] * downward
+        + facing[row] * PLATE_FRONT
         for row in range(3)
     )
 
@@ -276,22 +281,27 @@ def absolute_matrix(center, right_u, up_u, facing):
 # --------------------------------------------------------------------------
 
 class _VREvent(ctypes.Structure):
-    """The front of VREvent_t: type, device, age, then the data union.
+    """The 40-byte VREvent_t prefix: header, then the data union at @16.
 
-    Layout matches the runtime: eventType @0, trackedDeviceIndex @4,
-    eventAgeSeconds @8, data @12. VREvent_Mouse puts button @12, x @16, y @20;
-    VREvent_Overlay puts the handle @12 and memoryBlockId @20.
+    VREvent_t is ``{uint32 type; uint32 device; float age; VREvent_Data_t
+    data;}`` and the data union holds 64-bit members, so it is 8-byte aligned:
+    it begins at @16, NOT @12. Inside it, VREvent_Mouse_t is ``{float x;
+    float y; uint32 button;}`` - x@16, y@20, button@24. VREvent_Overlay_t puts
+    overlayHandle at @16.
+
+    Reading the fields sequentially (the old layout) pushed the button to @28,
+    i.e. uninitialised memory: ``button & LEFT_BUTTON`` then passed only when
+    that garbage happened to have bit 0 set, silently dropping every other
+    laser press (live 2026-11-10, "I have to press a couple times").
     """
 
     _fields_ = [
-        ("eventType", ctypes.c_uint32),
-        ("trackedDeviceIndex", ctypes.c_uint32),
-        ("eventAgeSeconds", ctypes.c_float),
-        ("overlayHandle", ctypes.c_uint64),
-        ("memoryBlockId", ctypes.c_uint32),
-        ("mouseButton", ctypes.c_uint32),
-        ("mouseX", ctypes.c_float),
-        ("mouseY", ctypes.c_float),
+        ("eventType", ctypes.c_uint32),           # @0
+        ("trackedDeviceIndex", ctypes.c_uint32),  # @4
+        ("eventAgeSeconds", ctypes.c_float),      # @8; union aligns to @16
+        ("overlayHandle", ctypes.c_uint64),       # @16 (VREvent_Overlay_t)
+        ("mouseButton", ctypes.c_uint32),         # @24 (VREvent_Mouse_t.button)
+        ("_rest", ctypes.c_uint32 * 3),           # @28..39; sizeof stays 40
     ]
 
 
@@ -475,8 +485,6 @@ class OverlayApi:
             "type": int(ev.eventType),
             "handle": int(ev.overlayHandle),
             "button": int(ev.mouseButton),
-            "x": float(ev.mouseX),
-            "y": float(ev.mouseY),
         }
 
 
@@ -761,11 +769,17 @@ class WindowMic:
         if kind == MOUSE_MOVE:
             mic.last_move = now
         elif kind == MOUSE_DOWN:
-            if ev.get("button", 0) & LEFT_BUTTON:
-                self._on_mouse_down(mic.seq, now)
+            # Any press on our single-button overlay is the click. Gating on a
+            # button mask used to drop presses whenever the event field was
+            # read from the wrong offset (see _VREvent); log the raw value so
+            # a future layout regression is visible in the journal.
+            log.info("window mic: press window.%s button=%s",
+                     mic.seq, ev.get("button"))
+            self._on_mouse_down(mic.seq, now)
         elif kind == MOUSE_UP:
-            if ev.get("button", 0) & LEFT_BUTTON:
-                self._on_mouse_up(mic.seq, now)
+            log.info("window mic: release window.%s button=%s",
+                     mic.seq, ev.get("button"))
+            self._on_mouse_up(mic.seq, now)
 
     # -- state machine -----------------------------------------------------
 
@@ -794,6 +808,8 @@ class WindowMic:
         except Exception:
             allowed = False
         if not allowed:
+            log.info("window mic: press window.%s ignored (feature off or "
+                     "engine busy/paused)", seq)
             return
         if self._take_seq is not None:
             active = self._take_seq

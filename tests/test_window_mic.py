@@ -1,9 +1,10 @@
 """Tests for the optional per-window mic button.
 
-Only the pure geometry/availability helpers are covered here. Nothing in this
+Only pure helpers and the event struct layout are covered here. Nothing in this
 file needs a headset or a live SteamVR runtime.
 """
 
+import ctypes
 import math
 
 from frameassist import window_mic as wm
@@ -134,24 +135,42 @@ def test_quad_from_probe_rejects_a_tiny_quad():
 
 # --- corner_target / absolute_matrix -------------------------------------
 
-def test_corner_target_sits_bottom_right_and_toward_viewer():
+def test_corner_target_hangs_outside_the_right_edge():
+    """Live 2026-11-10: the plate moved fully outside the window so it does
+    not sit beside the grab bar SteamVR draws under a floating window."""
     center = (0.0, 1.5, -1.0)
     right_u, up_u, facing = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)
     got = wm.corner_target(center, 1.0, 0.8, right_u, up_u, facing)
-    # Right of the window centre.
-    assert got[0] > center[0]
-    # Below the window centre.
-    assert got[1] < center[1]
-    # Nudged toward the viewer.
-    assert abs(got[2] - (center[2] + wm.TOWARD_VIEWER)) < 1e-9
+    # The plate's near edge clears the window's right edge by a real gap.
+    assert abs((got[0] - wm.PLATE_METERS / 2)
+               - (center[0] + 1.0 / 2 + wm.PLATE_OUT_GAP)) < 1e-9
+    # It hangs below the bottom edge by a fixed drop.
+    assert abs(got[1] - (center[1] - 0.8 / 2 - wm.PLATE_DROP)) < 1e-9
+    # And floats in front of the (curved) window plane.
+    assert abs(got[2] - (center[2] + wm.PLATE_FRONT)) < 1e-9
 
 
-def test_corner_target_inset_is_capped_for_small_windows():
+def test_corner_target_gap_does_not_scale_with_the_window():
     center = (0.0, 0.0, 0.0)
     right_u, up_u, facing = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)
-    # A 0.1 m wide window: inset must not exceed 35% of its width.
     got = wm.corner_target(center, 0.1, 0.1, right_u, up_u, facing)
-    assert got[0] <= 0.1 * 0.35
+    assert abs((got[0] - wm.PLATE_METERS / 2)
+               - (0.1 / 2 + wm.PLATE_OUT_GAP)) < 1e-9
+
+
+# --- VREvent_t layout (live 2026-11-10 regression) ------------------------
+
+def test_vrevent_mouse_button_is_read_from_the_aligned_union():
+    """The data union is 8-byte aligned (@16), so VREvent_Mouse_t.button is at
+    @24 - not in a sequentially modelled @28. Reading @28 gave garbage and the
+    old ``button & LEFT_BUTTON`` gate then dropped every other press."""
+    ev = wm._VREvent
+    assert ctypes.sizeof(ev) == 40
+    assert ev.eventType.offset == 0
+    assert ev.trackedDeviceIndex.offset == 4
+    assert ev.eventAgeSeconds.offset == 8
+    assert ev.overlayHandle.offset == 16
+    assert ev.mouseButton.offset == 24
 
 
 def test_absolute_matrix_places_translation_in_the_last_column():
