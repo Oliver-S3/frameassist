@@ -5,6 +5,7 @@ Runs as a window (``frameassist``), as the background copy SteamVR starts
 """
 
 import argparse
+import atexit
 import os
 import sys
 import threading
@@ -56,6 +57,52 @@ def close_window(link, vr, engine, app):
     app.quit()
 
 
+def _pid_alive(pid):
+    """True when pid is a live process we can signal (POSIX; False elsewhere)."""
+    if os.name != "posix":
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True  # exists but not ours (EPERM)
+    return True
+
+
+def claim_window_instance(base_dir=None):
+    """Claim the one-window-copy lock. Returns the lock path, or None when
+    another window copy is already running.
+
+    Two window copies used to coexist: the older one's stale Settings dialog
+    could then rewrite the mic anchor behind the live one's back (live
+    2026-11-10: the Mic position flipped to "window" right after a Save).
+    A crashed copy leaves a stale pid; it is treated as free.
+    """
+    base = Path(base_dir) if base_dir else (
+        Path.home() / ".local/state/frameassist")
+    path = base / "window.pid"
+    try:
+        pid = int(path.read_text().strip())
+        if pid != os.getpid() and _pid_alive(pid):
+            return None
+    except (OSError, ValueError):
+        pass
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(os.getpid()))
+    except OSError:
+        return None
+    return path
+
+
+def release_window_instance(path):
+    try:
+        path.unlink()
+    except OSError:
+        pass
+
+
 def run_window(cfg):
     """The window copy. Installs the KWin rule, starts the speech model load,
     connects its gestures to SteamVR (stepping aside if a background copy has
@@ -70,6 +117,18 @@ def run_window(cfg):
     app = QApplication.instance() or QApplication(sys.argv[:1])
     _style(app)
     _install_kwin_rule()
+
+    # One window copy only: a second copy runs a stale Settings dialog that
+    # can rewrite the mic anchor behind this one's back.
+    window_lock = claim_window_instance()
+    if window_lock is None:
+        from PySide6.QtWidgets import QMessageBox
+        log.warning("FrameAssist is already open; not starting a second window copy")
+        QMessageBox.information(
+            None, "FrameAssist",
+            "FrameAssist is already open.\n\nClose the other window first.")
+        return 0
+    atexit.register(release_window_instance, window_lock)
 
     # The background copy (if any) hands the shortcuts to us while our window
     # is open; it takes them back the moment this window closes.
