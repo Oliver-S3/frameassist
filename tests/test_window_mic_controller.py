@@ -564,3 +564,51 @@ def test_upload_pushes_texture_to_overlay():
     length, w, h = api.raw[handle]
     assert (w, h) == (wm.TEX_W, wm.TEX_H)
     assert length == wm.TEX_W * wm.TEX_H * 4
+
+
+# --------------------------------------------------------------------------
+# Head-anchored ("hud") mic
+# --------------------------------------------------------------------------
+
+def test_hud_mic_is_one_button_and_ignores_floating_windows():
+    api = FakeApi()
+    api.add_window(49)  # a floating window: hud mode must not target it
+    placed = []
+    clock = Clock()
+    mic = wm.WindowMic(
+        api, "frameassist.voicetyping", clock=clock,
+        hud=lambda handle: placed.append(handle))
+    mic.tick(clock())
+    assert list(mic._mics) == [wm.HUD_SEQ]
+    hud_mic = mic._mics[wm.HUD_SEQ]
+    assert hud_mic.key == "frameassist.voicetyping.mic.hud"
+    assert hud_mic.handle in api.shown
+    assert placed == [hud_mic.handle]
+    # A second tick must not create a second overlay.
+    clock.advance(0.1)
+    mic.tick(clock())
+    assert list(mic._mics) == [wm.HUD_SEQ]
+    assert placed == [hud_mic.handle]
+
+
+def test_hud_mic_click_starts_and_stops_recording():
+    api = FakeApi()
+    commands = []
+    clock = Clock()
+    mic = wm.WindowMic(
+        api, "frameassist.voicetyping",
+        on_command=lambda cmd, seq: commands.append((cmd, seq)),
+        can_act=lambda: True, engine_state=lambda: "idle",
+        clock=clock, hud=lambda handle: None)
+    mic.tick(clock())
+    hud_mic = mic._mics[wm.HUD_SEQ]
+    api.events[hud_mic.handle] = [
+        {"type": wm.MOUSE_DOWN, "button": 0, "x": 0, "y": 0}]
+    mic.tick(clock())
+    assert commands == [("talk_start", wm.HUD_SEQ)]
+    assert mic._take_seq == wm.HUD_SEQ
+    clock.advance(0.4)  # longer than CLICK_S, so this is hold-to-talk
+    api.events[hud_mic.handle] = [
+        {"type": wm.MOUSE_UP, "button": 0, "x": 0, "y": 0}]
+    mic.tick(clock())
+    assert commands == [("talk_start", wm.HUD_SEQ), ("talk_stop", wm.HUD_SEQ)]

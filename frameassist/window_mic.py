@@ -1,8 +1,14 @@
-"""Optional mic button parked on each floating (gamescope) window.
+"""Optional mic button you hold with the laser to dictate.
 
-Off by default (`window_mic` in the config). When on, a small mic plate sits at
-the bottom-right of every floating window; hold it with the laser to dictate
-into that window, release to type there.
+Off by default (`window_mic` in the config). Two anchors
+(`window_mic_anchor`):
+
+* ``hud`` (default): one button at the bottom-right of the view, anchored
+  head-relative beside the Steam toolbar. Always reachable, including while a
+  PC desktop is streamed -- the streamed PC's windows are pixels in a scene
+  texture, not SteamVR overlays, so per-window anchoring cannot find them.
+* ``window``: one plate at the bottom-right of every floating (gamescope)
+  window; hold it to dictate, release to type there.
 
 WHY THIS IS NOT STRAIGHTFORWARD
     Three binding-layer problems, all proven on the Frame:
@@ -106,6 +112,16 @@ PLATE_DROP = 0.06
 # the edge - sank behind the curved glass ("about 2 inches behind the plane of
 # the window"). Push it clearly out in front of the curved surface instead.
 PLATE_FRONT = 0.105
+
+# Head-anchored ("hud") mic: one always-visible button at the bottom-right of
+# the view, head relative so it follows the user into a streamed PC desktop
+# where the PC's windows are just pixels in a scene texture, not SteamVR
+# overlays. Metres in the HMD frame: +x right, -y down, -z forward (same
+# anchoring the status badge uses).
+HUD_X = 0.30
+HUD_Y = -0.33
+HUD_Z = -0.80
+HUD_SEQ = 0
 
 # Easing. Short, so the mic stays on the glass during a stepped sample.
 SMOOTH_S = 0.01
@@ -527,8 +543,12 @@ class WindowMic:
 
     def __init__(self, api, app_key, on_command=None, can_act=None,
                  engine_state=None, clock=time.monotonic, enabled=True,
-                 api_factory=None):
+                 api_factory=None, hud=None):
         self.api = api
+        # When ``hud`` is a callable, this controller keeps ONE head-anchored
+        # mic (``hud(handle)`` sets its head-relative transform) instead of
+        # scanning for floating windows.
+        self.hud = hud
         self.app_key = app_key
         self.on_command = on_command or (lambda cmd, seq: None)
         self.can_act = can_act or (lambda: True)
@@ -571,13 +591,37 @@ class WindowMic:
             return
         dt = None if self._last_tick is None else max(0.0, now - self._last_tick)
         self._last_tick = now
-        for step in (self._maybe_scan, self._poll_events, self._position,
-                     self._repaint, self._enforce_cap):
+        if self.hud is not None:
+            steps = (self._ensure_hud, self._poll_events, self._repaint,
+                     self._enforce_cap)
+        else:
+            steps = (self._maybe_scan, self._poll_events, self._position,
+                     self._repaint, self._enforce_cap)
+        for step in steps:
             try:
                 step(now, dt)
             except Exception as err:
                 log.warning("floating mics: %s failed: %s",
                             getattr(step, "__name__", step), err)
+
+    # -- head-anchored mic -------------------------------------------------
+
+    def _ensure_hud(self, now, dt):
+        if self._mics:
+            return
+        key = f"{self.app_key}.mic.hud"
+        handle = self.api.find(key) or self.api.create(key, "FrameAssist mic")
+        self._configure(handle)
+        mic = _Mic(HUD_SEQ, key, handle, 0)
+        self._upload(mic)
+        self.api.show(handle)
+        try:
+            self.hud(handle)
+        except Exception as err:
+            log.warning("window mic: could not anchor the toolbar mic to the "
+                        "head: %s", err)
+        self._mics[HUD_SEQ] = mic
+        log.info("window mic: toolbar mic shown")
 
     # -- window scanning ---------------------------------------------------
 

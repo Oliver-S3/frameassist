@@ -148,13 +148,18 @@ class SteamVR:
 
     def __init__(self, on_status=lambda text: None,
                  in_games=False, rest_while_streaming=False,
-                 autolaunch=True, clock=None, window_mic=False):
+                 autolaunch=True, clock=None, window_mic=False,
+                 window_mic_anchor="hud"):
         self.on_status = on_status
         self.in_games = in_games
         self.rest_while_streaming = rest_while_streaming
         self.autolaunch = autolaunch
         self.clock = clock or time.monotonic
         self.window_mic = bool(window_mic)
+        # "hud": one head-anchored mic beside the Steam toolbar (works while a
+        # PC desktop is streamed); "window": one mic per floating gamescope
+        # window (the original behaviour).
+        self.window_mic_anchor = window_mic_anchor or "hud"
         self.connected = False
         self._stop = False
         self.hold = False
@@ -208,11 +213,16 @@ class SteamVR:
         self._stop = True
 
     def set_options(self, in_games=None, rest_while_streaming=None,
-                    window_mic=None):
+                    window_mic=None, window_mic_anchor=None):
         if in_games is not None:
             self.in_games = in_games
         if rest_while_streaming is not None:
             self.rest_while_streaming = rest_while_streaming
+        if window_mic_anchor is not None and window_mic_anchor != self.window_mic_anchor:
+            self.window_mic_anchor = window_mic_anchor
+            if self.mic is not None:
+                self._stop_mic()  # rebuild with the new anchor
+                self._sync_mic()
         if window_mic is not None:
             self.window_mic = bool(window_mic)
             self._sync_mic()
@@ -239,7 +249,7 @@ class SteamVR:
         return True
 
     def _sync_mic(self):
-        """Start/stop the per-window mic overlays to match self.window_mic."""
+        """Start/stop the mic overlay(s) to match self.window_mic/anchor."""
         with self._mic_lock:
             on = self.window_mic
             if on and self.mic is None:
@@ -252,13 +262,28 @@ class SteamVR:
                         log.warning("window mic unavailable: %s", reason)
                         return
                     api = wm.OverlayApi()
+                    hud = None
+                    if self.window_mic_anchor == "hud":
+                        vr = self.vr
+                        def hud(handle):
+                            overlay = vr.VROverlay()
+                            m = vr.HmdMatrix34_t()
+                            for r in range(3):
+                                for c in range(4):
+                                    m.m[r][c] = 1.0 if r == c else 0.0
+                            m.m[0][3] = wm.HUD_X
+                            m.m[1][3] = wm.HUD_Y
+                            m.m[2][3] = wm.HUD_Z
+                            overlay.setOverlayTransformTrackedDeviceRelative(
+                                handle, vr.k_unTrackedDeviceIndex_Hmd, m)
                     self.mic = wm.WindowMic(
                         api, APP_KEY,
                         on_command=lambda cmd, _seq: self.send_command(cmd),
                         can_act=self._mic_can_act,
                         engine_state=lambda: self.engine_state,
-                        enabled=True)
-                    log.info("window mics enabled")
+                        enabled=True,
+                        hud=hud)
+                    log.info("window mics enabled (%s)", self.window_mic_anchor)
                 except Exception as err:
                     log.warning("window mics failed to start: %r", err)
                     self.mic = None
@@ -270,17 +295,20 @@ class SteamVR:
                     log.info("window mics kept (already running)")
                     self._mic_kept_logged = True
             elif not on and self.mic is not None:
-                try:
-                    self.mic.destroy()
-                    log.info("window mics disabled")
-                except Exception as err:
-                    log.warning("window mics failed to stop: %r", err)
-                try:
-                    self.mic.api.close()
-                except Exception:
-                    pass
-                self.mic = None
-                self._mic_kept_logged = False
+                self._stop_mic()
+
+    def _stop_mic(self):
+        try:
+            self.mic.destroy()
+            log.info("window mics disabled")
+        except Exception as err:
+            log.warning("window mics failed to stop: %r", err)
+        try:
+            self.mic.api.close()
+        except Exception:
+            pass
+        self.mic = None
+        self._mic_kept_logged = False
 
     def _tick_mic(self, now):
         """Tick the mic under the lock, so a concurrent Settings toggle can't

@@ -44,17 +44,21 @@ DEFAULTS = {
     "host_addr": "",
     "host_port": 8763,
     "host_secret": "",
-    # Optional: a small mic button parked on the bottom-right of each floating
-    # (gamescope) window, so you can hold it with the laser to dictate into that
-    # window instead of using the grips. Opt-in and off by default; it needs the
-    # native overlay_point.so helper that install.sh builds.
+    # Optional: a small mic button you can hold with the laser to dictate
+    # instead of using the grips. Opt-in and off by default; the "hud" anchor
+    # puts one always-visible button at the bottom-right of the view (head
+    # relative, beside the Steam toolbar) and also works while a PC desktop is
+    # streamed; "window" puts one on each floating (gamescope) window. Both
+    # need the native overlay_point.so helper that install.sh builds.
     "window_mic": False,
+    "window_mic_anchor": "hud",
 }
 
 # Known keys, so an old config with a bad value is repaired, not trusted.
 _ENUM_KEYS = {
     "after_talking": ("type", "clipboard", "paste"),
     "delivery": ("frame", "host"),
+    "window_mic_anchor": ("hud", "window"),
 }
 
 

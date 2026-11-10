@@ -212,13 +212,25 @@ class SettingsDialog(QDialog):
         self.autostart.setChecked(cfg.get("autostart", True))
         form.addRow("", self.autostart)
 
-        self.window_mic = QCheckBox("Show a mic button on floating windows")
+        self.window_mic = QCheckBox("Show a mic button in VR")
         self.window_mic.setChecked(cfg.get("window_mic", False))
         self.window_mic.setToolTip(
-            "Pins a small mic to the bottom-right of each floating window. "
-            "Hold it with the laser to dictate into that window; a quick tap "
-            "latches recording until the next click. Off by default.")
-        form.addRow("Window mic", self.window_mic)
+            "A small mic you hold with the laser to dictate. \"Bottom of view\" "
+            "keeps it beside the Steam toolbar, always reachable (including "
+            "over a streamed PC desktop); \"On each window\" pins one to the "
+            "bottom-right of each floating window. Off by default.")
+        form.addRow("Mic button", self.window_mic)
+        self.window_mic_anchor = QComboBox()
+        self.window_mic_anchor.addItem("Bottom of view (always visible)", "hud")
+        self.window_mic_anchor.addItem("On each floating window", "window")
+        anchor = cfg.get("window_mic_anchor", "hud")
+        idx = max(0, self.window_mic_anchor.findData(anchor))
+        self.window_mic_anchor.setCurrentIndex(idx)
+        self.window_mic_anchor.setToolTip(
+            "Where the mic button lives. \"Bottom of view\" is head relative and "
+            "keeps working over streamed PC windows; \"On each window\" only "
+            "finds native (gamescope) floating windows.")
+        form.addRow("Mic position", self.window_mic_anchor)
         self._window_mic_reason = window_mic_unavailable_reason()
         if self._window_mic_reason:
             self.window_mic.setEnabled(False)
@@ -341,6 +353,7 @@ class SettingsDialog(QDialog):
             "rest_while_streaming": self.rest_stream.isChecked(),
             "autostart": self.autostart.isChecked(),
             "window_mic": self.window_mic.isChecked(),
+            "window_mic_anchor": self.window_mic_anchor.currentData(),
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),
             "ai_base_url": self.ai_base_url.text().strip(),

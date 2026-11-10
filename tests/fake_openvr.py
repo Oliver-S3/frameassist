@@ -101,6 +101,7 @@ class _Overlay:
     def __init__(self):
         self.handles = set()
         self.dashboard = False
+        self.transforms = []
 
     def createOverlay(self, key, name):
         self.handles.add(key)
@@ -110,7 +111,7 @@ class _Overlay:
         pass
 
     def setOverlayTransformTrackedDeviceRelative(self, *a):
-        pass
+        self.transforms.append(a)
 
     def showOverlay(self, key):
         pass

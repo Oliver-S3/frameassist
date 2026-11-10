@@ -306,7 +306,8 @@ class Background:
         self.vr = vr_cls(in_games=cfg.get("in_games", False),
                          rest_while_streaming=cfg.get("rest_while_streaming", False),
                          autolaunch=cfg.get("autostart", True),
-                         window_mic=bool(cfg.get("window_mic", False)))
+                         window_mic=bool(cfg.get("window_mic", False)),
+                         window_mic_anchor=cfg.get("window_mic_anchor", "hud"))
         self.vr.set_gesture_engine(self.engine_gestures())
         self.vr.hold = True
         self.engine.paused = True
@@ -362,7 +363,8 @@ class Background:
             self.vr.set_options(
                 in_games=bool(new.get("in_games", False)),
                 rest_while_streaming=bool(new.get("rest_while_streaming", False)),
-                window_mic=bool(new.get("window_mic", False)))
+                window_mic=bool(new.get("window_mic", False)),
+                window_mic_anchor=new.get("window_mic_anchor", "hud"))
         except Exception:
             pass
 

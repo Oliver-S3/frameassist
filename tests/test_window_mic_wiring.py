@@ -173,3 +173,39 @@ def test_show_state_feeds_engine_state(vr):
     assert svr.engine_state == "working"
     svr.show_state("listening", "")
     assert svr.engine_state == "listening"
+
+
+class HudRecordingMic(RecordingMic):
+    def __init__(self, api=None, app_key=None, on_command=None, hud=None,
+                 **kwargs):
+        super().__init__(api, app_key, on_command, **kwargs)
+        self.hud = hud
+
+
+def test_hud_anchor_pins_the_mic_to_the_head(vr, monkeypatch):
+    svr = SteamVR(clock=Clock(), window_mic=True, window_mic_anchor="hud")
+    svr.vr = vr
+    import frameassist.window_mic as wm
+    monkeypatch.setattr(wm, "unavailable_reason", lambda: None)
+    monkeypatch.setattr(wm, "OverlayApi", lambda: object())
+    monkeypatch.setattr(wm, "WindowMic", HudRecordingMic)
+    svr._sync_mic()
+    mic = svr.mic
+    assert mic.hud is not None
+    mic.hud("frameassist.voicetyping.mic.hud")
+    (handle, device, matrix), = vr.VROverlay().transforms
+    assert handle == "frameassist.voicetyping.mic.hud"
+    assert device == vr.k_unTrackedDeviceIndex_Hmd
+    assert matrix.m[2][3] < 0  # in front of the face
+    assert matrix.m[0][3] > 0  # to the right, beside the toolbar
+
+
+def test_window_anchor_leaves_the_mic_head_unpinned(vr, monkeypatch):
+    svr = SteamVR(clock=Clock(), window_mic=True, window_mic_anchor="window")
+    svr.vr = vr
+    import frameassist.window_mic as wm
+    monkeypatch.setattr(wm, "unavailable_reason", lambda: None)
+    monkeypatch.setattr(wm, "OverlayApi", lambda: object())
+    monkeypatch.setattr(wm, "WindowMic", HudRecordingMic)
+    svr._sync_mic()
+    assert svr.mic.hud is None
