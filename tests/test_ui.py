@@ -5,7 +5,8 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from PySide6.QtWidgets import QApplication, QPushButton  # noqa: E402
+from PySide6.QtWidgets import QAbstractButton, QApplication, QPushButton  # noqa: E402
+from PySide6.QtCore import Qt  # noqa: E402
 from frameassist.ui import CalibrateDialog, MainWindow, SettingsDialog  # noqa: E402
 
 
@@ -20,6 +21,21 @@ def test_window_constructs(app):
     engine = Engine(cfg)
     window = MainWindow(cfg, engine, on_settings=lambda cfg: None)
     assert window.windowTitle() == "FrameAssist"
+    window.close()
+
+
+def test_main_window_never_takes_keyboard_focus(app):
+    """A dictation's trailing space used to press the focused mic button and
+    start a second, latched take (live 2026-11-10). Every control must be
+    click-only and the window must refuse keyboard focus."""
+    from frameassist.engine import Engine
+    cfg = {"add_space": True, "model": "base.en"}
+    engine = Engine(cfg)
+    window = MainWindow(cfg, engine, on_settings=lambda cfg: None)
+    assert window.focusPolicy() == Qt.FocusPolicy.NoFocus
+    assert window.windowFlags() & Qt.WindowType.WindowDoesNotAcceptFocus
+    for btn in window.findChildren(QAbstractButton):
+        assert btn.focusPolicy() == Qt.FocusPolicy.NoFocus, btn.text()
     window.close()
 
 

@@ -11,7 +11,7 @@ import sys
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QPainter, QPen
 from PySide6.QtWidgets import (
-    QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+    QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
     QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu,
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
@@ -87,6 +87,9 @@ class MicButton(QPushButton):
         self._radius = 54
         self.setFixedSize(132, 132)
         self.setCheckable(False)
+        # Click-only: never let a typed space/Enter (the dictation's trailing
+        # space) "press" it.
+        self.setFocusPolicy(Qt.NoFocus)
         self.setCursor(Qt.PointingHandCursor)
         self.mode = "tap"
 
@@ -503,9 +506,16 @@ class MainWindow(QMainWindow):
 
         self.setCentralWidget(central)
 
-        # UI never takes typed keys.
+        # UI never takes typed keys. A dictation's trailing space used to
+        # activate the focused mic button (QPushButton), starting a second take
+        # that latched "Listening…" on for good (live 2026-11-10). The window
+        # refuses keyboard focus and every control is click-only.
         self.setAttribute(Qt.WA_ShowWithoutActivating)
         self.setAttribute(Qt.WA_X11NetWmWindowTypeDesktop)
+        self.setFocusPolicy(Qt.NoFocus)
+        self.setWindowFlags(self.windowFlags() | Qt.WindowDoesNotAcceptFocus)
+        for child in self.findChildren(QAbstractButton):
+            child.setFocusPolicy(Qt.NoFocus)
 
         self.state_sig.connect(self._show_state)
         self.transcript_sig.connect(self._show_transcript)
