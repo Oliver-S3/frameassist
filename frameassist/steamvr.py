@@ -316,6 +316,11 @@ class SteamVR:
                 # The window mic must keep tracking while the GUI is open:
                 # its overlays are placed every tick, and a paused loop would
                 # leave them frozen in space while the user moves windows.
+                # _sync_mic must also run here: the session teardown cleared
+                # self.mic when hold began, and no session starts while the
+                # GUI stays open - without this the mic stays dead for the
+                # whole hold (live deadlock 2026-11-09 18:59).
+                self._sync_mic()
                 if self.mic is not None:
                     try:
                         self.mic.tick(self.clock())
