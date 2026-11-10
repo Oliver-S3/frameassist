@@ -205,12 +205,14 @@ def test_mic_key_uses_app_key_and_seq():
     assert mic._mics[7].key == "frameassist.voicetyping.mic.7"
 
 
-def test_stale_api_is_rebuilt_after_a_zero_window_drought():
+def test_stale_api_is_flagged_after_a_zero_window_drought():
     """Regression: the service's OverlayApi went stale while its process
     lived on (headset sleep / SteamVR session churn) and FindOverlay kept
     returning nothing for NEW windows - the mic never appeared until the
     service was restarted (2026-11-09 18:33). The controller must notice a
-    long zero-window drought and rebuild the api."""
+    long zero-window drought and flag the api suspect so the owner cycles
+    the session. It must NOT rebuild in place: a second VR_InitInternal
+    under a live session SEGVs (2026-11-09 19:15, one crash per rebuild)."""
     made = []
 
     def factory():
@@ -226,29 +228,48 @@ def test_stale_api_is_rebuilt_after_a_zero_window_drought():
     # Drought: no windows at all.
     clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
     mic.tick(clock())
-    assert len(made) == 1, "no rebuild before the drought threshold"
+    assert not mic.api_suspect, "flagged before the drought threshold"
     clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
     mic.tick(clock())
-    assert len(made) == 2, "api was not rebuilt after the drought"
-    assert mic.api is made[1]
-    # A window appearing right after the rebuild is found with the new api.
-    made[1].add_window(9)
+    assert mic.api_suspect, "api was not flagged after the drought"
+    # The api object is untouched - rebuilding in place crashes the runtime.
+    assert mic.api is api
+    assert len(made) == 1
+    # A window appearing later still works through the same api.
+    api.add_window(9)
     clock.advance(wm.SCAN_S + 0.1)
     mic.tick(clock())
     assert 9 in mic._mics
 
 
-def test_live_api_is_never_rebuilt_while_windows_exist():
+def test_flag_is_set_once_per_drought():
+    api = FakeApi()
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
+                       api_factory=FakeApi)
+    clock = mic.clock
+    # First drought pass only starts the clock; the second flags the api.
+    clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
+    mic.tick(clock())
+    assert not mic.api_suspect
+    clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
+    mic.tick(clock())
+    assert mic.api_suspect
+    clock.advance(wm.REBUILD_AFTER_S + wm.SCAN_S)
+    mic.tick(clock())
+    # Still just flagged, no repeated work, no exceptions.
+    assert mic.api_suspect
+
+
+def test_live_api_is_never_flagged_while_windows_exist():
     api = FakeApi()
     api.add_window(5)
-    calls = []
     mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
-                       api_factory=lambda: calls.append(1) or FakeApi())
+                       api_factory=FakeApi)
     clock = mic.clock
     for _ in range(120):
         clock.advance(wm.REBUILD_AFTER_S / 60)
         mic.tick(clock())
-    assert calls == [], "api rebuilt even though windows were present"
+    assert not mic.api_suspect, "api flagged even though windows were present"
 
 
 def test_max_mics_cap():

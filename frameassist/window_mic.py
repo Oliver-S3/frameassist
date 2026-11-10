@@ -531,6 +531,7 @@ class WindowMic:
         self._last_tick = None
         self._empty_since = None   # first scan of the current zero-window run
         self._last_beat = None     # last heartbeat log
+        self.api_suspect = False   # set after a zero-window drought
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -593,9 +594,9 @@ class WindowMic:
 
         if not windows:
             # Stale-api watchdog: a healthy runtime with no windows floating
-            # looks identical to a dead api, so after a long drought rebuild
-            # the api once per drought. When windows ARE present the api is
-            # demonstrably alive and we never rebuild.
+            # looks identical to a dead api, so after a long drought flag the
+            # api as suspect. When windows ARE present the api is
+            # demonstrably alive and we never flag it.
             if self._empty_since is None:
                 self._empty_since = now
             elif now - self._empty_since >= REBUILD_AFTER_S:
@@ -623,29 +624,20 @@ class WindowMic:
         self._mics = keep
 
     def _rebuild_api(self, now):
-        """Replace a suspect overlay api. Runs only after REBUILD_AFTER_S of
-        continuous zero-window scans, so a healthy api with nothing floating
-        gets rebuilt at most once per minute (harmless: init/shutdown cycles
-        are proven cheap on this runtime)."""
-        log.info("floating mics: no windows for %.0fs - rebuilding the "
-                 "overlay api", REBUILD_AFTER_S)
-        self._empty_since = now   # next rebuild no sooner than another drought
-        self._seen_logged = None  # force the next scan to log its result
-        for seq in list(self._mics):
-            self._remove_mic(seq)
-        self._mics = {}
-        fresh = None
-        try:
-            fresh = self.api_factory()
-        except Exception as err:
-            log.warning("floating mics: api rebuild failed: %s", err)
-        if fresh is not None:
-            old, self.api = self.api, fresh
-            try:
-                old.close()
-            except Exception:
-                pass
-            log.info("floating mics: overlay api rebuilt")
+        """Flag the overlay api as suspect after REBUILD_AFTER_S of
+        continuous zero-window scans. The api is NOT rebuilt here: calling
+        VR_InitInternal a second time while the owning session is live
+        SEGVs the runtime (live 2026-11-09 19:15-19:18, one crash per
+        rebuild). Instead the flag tells the owner (steamvr session loop)
+        to cycle the session at a safe point, which re-creates this
+        controller with a fresh api through the normal teardown path."""
+        if self.api_suspect:
+            return
+        self.api_suspect = True
+        self._empty_since = now
+        log.info("floating mics: no windows for %.0fs - overlay api flagged "
+                 "suspect; the next session cycle will rebuild it",
+                 REBUILD_AFTER_S)
 
     def _create_mic(self, seq, win_handle):
         key = f"{self.app_key}.mic.{seq}"

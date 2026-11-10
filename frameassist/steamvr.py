@@ -350,8 +350,16 @@ class SteamVR:
                 self._sync_mic()
                 # Hold no longer exits the session: keep stepping (the mic
                 # needs the 60 Hz loop and the event pump) and let step()
-                # itself skip the input work while held.
+                # itself skip the input work while held. The mic may flag its
+                # api suspect during a long zero-window drought; cycling the
+                # session is the ONLY safe place to rebuild it (a second
+                # VR_InitInternal under a live session SEGVs - live
+                # 2026-11-09 19:15-19:18).
                 while not self._stop and self.step():
+                    if self.mic is not None and self.mic.api_suspect:
+                        log.info("steamvr: cycling session to rebuild the "
+                                 "window-mic overlay api")
+                        break
                     time.sleep(1 / 60)
             except Exception as err:
                 log.exception("steamvr session error")
