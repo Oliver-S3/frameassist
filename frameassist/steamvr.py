@@ -149,17 +149,17 @@ class SteamVR:
     def __init__(self, on_status=lambda text: None,
                  in_games=False, rest_while_streaming=False,
                  autolaunch=True, clock=None, window_mic=False,
-                 window_mic_anchor="hud"):
+                 window_mic_anchor="bar"):
         self.on_status = on_status
         self.in_games = in_games
         self.rest_while_streaming = rest_while_streaming
         self.autolaunch = autolaunch
         self.clock = clock or time.monotonic
         self.window_mic = bool(window_mic)
-        # "hud": one head-anchored mic beside the Steam toolbar (works while a
-        # PC desktop is streamed); "window": one mic per floating gamescope
-        # window (the original behaviour).
-        self.window_mic_anchor = window_mic_anchor or "hud"
+        # "bar": one mic at the right end of the Steam bar under the active
+        # window (fixed in the room with it); "hud": head relative; "window":
+        # one mic per floating gamescope window.
+        self.window_mic_anchor = window_mic_anchor or "bar"
         self.connected = False
         self._stop = False
         self.hold = False
@@ -282,7 +282,8 @@ class SteamVR:
                         can_act=self._mic_can_act,
                         engine_state=lambda: self.engine_state,
                         enabled=True,
-                        hud=hud)
+                        hud=hud,
+                        anchor=self.window_mic_anchor)
                     log.info("window mics enabled (%s)", self.window_mic_anchor)
                 except Exception as err:
                     log.warning("window mics failed to start: %r", err)

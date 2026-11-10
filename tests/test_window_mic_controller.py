@@ -576,7 +576,7 @@ def test_hud_mic_is_one_button_and_ignores_floating_windows():
     placed = []
     clock = Clock()
     mic = wm.WindowMic(
-        api, "frameassist.voicetyping", clock=clock,
+        api, "frameassist.voicetyping", clock=clock, anchor="hud",
         hud=lambda handle: placed.append(handle))
     mic.tick(clock())
     assert list(mic._mics) == [wm.HUD_SEQ]
@@ -599,7 +599,7 @@ def test_hud_mic_click_starts_and_stops_recording():
         api, "frameassist.voicetyping",
         on_command=lambda cmd, seq: commands.append((cmd, seq)),
         can_act=lambda: True, engine_state=lambda: "idle",
-        clock=clock, hud=lambda handle: None)
+        clock=clock, anchor="hud", hud=lambda handle: None)
     mic.tick(clock())
     hud_mic = mic._mics[wm.HUD_SEQ]
     api.events[hud_mic.handle] = [
@@ -612,3 +612,58 @@ def test_hud_mic_click_starts_and_stops_recording():
         {"type": wm.MOUSE_UP, "button": 0, "x": 0, "y": 0}]
     mic.tick(clock())
     assert commands == [("talk_start", wm.HUD_SEQ), ("talk_stop", wm.HUD_SEQ)]
+
+
+# --------------------------------------------------------------------------
+# Steam-bar ("bar") mic: fixed in the room, under the active window
+# --------------------------------------------------------------------------
+
+def test_bar_mic_parks_at_the_right_of_the_window_bar():
+    api = FakeApi()
+    api.add_window(49)
+    clock = Clock()
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
+                       anchor="bar")
+    mic.tick(clock())
+    bar_mic = mic._mics[wm.BAR_SEQ]
+    assert bar_mic.key == "frameassist.voicetyping.mic.bar"
+    info = api.windows[49]
+    _width, height, right_u, up_u, facing = wm.quad_from_probe(
+        info["ll"], info["lr"], info["ul"])
+    centre = [info["ll"][3 + 4 * i]
+              + (info["lr"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
+              + (info["ul"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
+              for i in range(3)]
+    expected = [centre[r] + right_u[r] * wm.BAR_RIGHT
+                - up_u[r] * (height / 2 + wm.BAR_GAP_Y)
+                + facing[r] * wm.BAR_FRONT for r in range(3)]
+    matrix = api.absolutes[bar_mic.handle]
+    assert [matrix[3], matrix[7], matrix[11]] == pytest.approx(expected)
+    assert bar_mic.handle in api.shown
+
+
+def test_bar_mic_waits_for_a_window():
+    api = FakeApi()
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
+                       anchor="bar")
+    mic.tick(Clock()())
+    assert mic._mics == {}
+
+
+def test_bar_mic_uses_the_newest_window_and_hides_when_it_closes():
+    api = FakeApi()
+    api.add_window(49, ll=(-2.0, 0.8, -2.0))
+    api.add_window(57)
+    clock = Clock()
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
+                       anchor="bar")
+    mic.tick(clock())
+    bar_mic = mic._mics[wm.BAR_SEQ]
+    assert bar_mic.win_handle == api.windows[57]["handle"]
+
+    del api.windows[49]
+    del api.windows[57]
+    clock.advance(wm.SCAN_S + 0.1)
+    mic.tick(clock())
+    assert bar_mic.hidden
+    assert bar_mic.handle not in api.shown

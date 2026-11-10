@@ -209,3 +209,23 @@ def test_window_anchor_leaves_the_mic_head_unpinned(vr, monkeypatch):
     monkeypatch.setattr(wm, "WindowMic", HudRecordingMic)
     svr._sync_mic()
     assert svr.mic.hud is None
+
+
+class AnchorRecordingMic(RecordingMic):
+    def __init__(self, api=None, app_key=None, on_command=None, hud=None,
+                 anchor=None, **kwargs):
+        super().__init__(api, app_key, on_command, **kwargs)
+        self.hud = hud
+        self.anchor = anchor
+
+
+def test_bar_anchor_is_passed_to_the_controller(vr, monkeypatch):
+    svr = SteamVR(clock=Clock(), window_mic=True, window_mic_anchor="bar")
+    svr.vr = vr
+    import frameassist.window_mic as wm
+    monkeypatch.setattr(wm, "unavailable_reason", lambda: None)
+    monkeypatch.setattr(wm, "OverlayApi", lambda: object())
+    monkeypatch.setattr(wm, "WindowMic", AnchorRecordingMic)
+    svr._sync_mic()
+    assert svr.mic.anchor == "bar"
+    assert svr.mic.hud is None

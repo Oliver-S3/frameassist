@@ -123,6 +123,15 @@ HUD_Y = -0.33
 HUD_Z = -0.80
 HUD_SEQ = 0
 
+# "bar" anchor: the Steam bar under the active window is fixed in the room and
+# the active window sits just above it, so the bar's pose can be derived from
+# the window's quad. The mic sits at the bar's right end, at bar centre height.
+# Offsets measured live 2026-11-10 13:20 from the compositor frame.
+BAR_RIGHT = 0.238   # metres right of the window centre (bar end + gap)
+BAR_GAP_Y = 0.080   # metres below the window's bottom edge (bar centre)
+BAR_FRONT = 0.02    # metres toward the viewer, off the window's plane
+BAR_SEQ = 0
+
 # Easing. Short, so the mic stays on the glass during a stepped sample.
 SMOOTH_S = 0.01
 DRAG_S = 0.01
@@ -543,11 +552,13 @@ class WindowMic:
 
     def __init__(self, api, app_key, on_command=None, can_act=None,
                  engine_state=None, clock=time.monotonic, enabled=True,
-                 api_factory=None, hud=None):
+                 api_factory=None, hud=None, anchor="window"):
         self.api = api
-        # When ``hud`` is a callable, this controller keeps ONE head-anchored
-        # mic (``hud(handle)`` sets its head-relative transform) instead of
-        # scanning for floating windows.
+        # ``anchor`` picks where the one optional button lives: "hud" (head
+        # relative; ``hud(handle)`` sets the transform), "bar" (beside the
+        # Steam bar under the active window, world locked) or "window" (a plate
+        # on each floating window).
+        self.anchor = anchor
         self.hud = hud
         self.app_key = app_key
         self.on_command = on_command or (lambda cmd, seq: None)
@@ -591,8 +602,11 @@ class WindowMic:
             return
         dt = None if self._last_tick is None else max(0.0, now - self._last_tick)
         self._last_tick = now
-        if self.hud is not None:
+        if self.anchor == "hud":
             steps = (self._ensure_hud, self._poll_events, self._repaint,
+                     self._enforce_cap)
+        elif self.anchor == "bar":
+            steps = (self._sync_bar, self._poll_events, self._repaint,
                      self._enforce_cap)
         else:
             steps = (self._maybe_scan, self._poll_events, self._position,
@@ -622,6 +636,72 @@ class WindowMic:
                         "head: %s", err)
         self._mics[HUD_SEQ] = mic
         log.info("window mic: toolbar mic shown")
+
+    # -- Steam-bar mic -----------------------------------------------------
+
+    def _sync_bar(self, now, dt):
+        """Keep ONE mic at the right end of the Steam bar under the active
+        window. The bar is fixed in the room; the active window (newest seq)
+        is attached above it, so the bar's pose is the window quad plus fixed
+        offsets."""
+        if now - self._last_scan < SCAN_S:
+            return
+        self._last_scan = now
+        windows = self._scan_windows()
+        mic = self._mics.get(BAR_SEQ)
+        if not windows:
+            if mic is not None and not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            return
+        seq = max(windows)
+        win_handle = windows[seq]
+        if mic is None:
+            key = f"{self.app_key}.mic.bar"
+            handle = self.api.find(key) or self.api.create(
+                key, "FrameAssist mic")
+            self._configure(handle)
+            mic = _Mic(BAR_SEQ, key, handle, win_handle)
+            self._upload(mic)
+            self._mics[BAR_SEQ] = mic
+            log.info("window mic: Steam-bar mic shown")
+        mic.win_handle = win_handle
+        matrix = self._bar_matrix(win_handle)
+        if matrix is None:
+            if not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            return
+        self.api.set_absolute(mic.handle, STANDING, matrix)
+        self.api.show(mic.handle)
+        mic.hidden = False
+
+    def _bar_matrix(self, win_handle):
+        """Standing-space transform for the mic centre at the bar's right
+        end, derived from the window's quad."""
+        scale = self.api.get_mouse_scale(win_handle)
+        mx, my = scale if scale else (1920.0, 1080.0)
+        ll = self.api.coords(win_handle, 0.0, 0.0)
+        lr = self.api.coords(win_handle, float(mx), 0.0)
+        ul = self.api.coords(win_handle, 0.0, float(my))
+        if not (ll and lr and ul):
+            return None
+        quad = quad_from_probe(ll, lr, ul)
+        if quad is None:
+            return None
+        _width, height, right_u, up_u, facing = quad
+        centre = [ll[3 + 4 * i]
+                  + (lr[3 + 4 * i] - ll[3 + 4 * i]) / 2
+                  + (ul[3 + 4 * i] - ll[3 + 4 * i]) / 2
+                  for i in range(3)]
+        target = [
+            centre[row]
+            + right_u[row] * BAR_RIGHT
+            - up_u[row] * (height / 2 + BAR_GAP_Y)
+            + facing[row] * BAR_FRONT
+            for row in range(3)
+        ]
+        return absolute_matrix(target, right_u, up_u, facing)
 
     # -- window scanning ---------------------------------------------------
 

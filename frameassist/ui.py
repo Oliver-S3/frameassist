@@ -215,21 +215,25 @@ class SettingsDialog(QDialog):
         self.window_mic = QCheckBox("Show a mic button in VR")
         self.window_mic.setChecked(cfg.get("window_mic", False))
         self.window_mic.setToolTip(
-            "A small mic you hold with the laser to dictate. \"Bottom of view\" "
-            "keeps it beside the Steam toolbar, always reachable (including "
-            "over a streamed PC desktop); \"On each window\" pins one to the "
-            "bottom-right of each floating window. Off by default.")
+            "A small mic you hold with the laser to dictate. \"Right of the Steam "
+            "bar\" parks it beside the bar under the active window (fixed in "
+            "the room with it, and works over a streamed PC desktop); \"Bottom "
+            "of view\" follows your head; \"On each window\" pins one to every "
+            "floating window. Off by default.")
         form.addRow("Mic button", self.window_mic)
         self.window_mic_anchor = QComboBox()
-        self.window_mic_anchor.addItem("Bottom of view (always visible)", "hud")
+        self.window_mic_anchor.addItem(
+            "Right of the Steam bar (under the active window)", "bar")
+        self.window_mic_anchor.addItem("Bottom of view (follows your head)", "hud")
         self.window_mic_anchor.addItem("On each floating window", "window")
-        anchor = cfg.get("window_mic_anchor", "hud")
+        anchor = cfg.get("window_mic_anchor", "bar")
         idx = max(0, self.window_mic_anchor.findData(anchor))
         self.window_mic_anchor.setCurrentIndex(idx)
         self.window_mic_anchor.setToolTip(
-            "Where the mic button lives. \"Bottom of view\" is head relative and "
-            "keeps working over streamed PC windows; \"On each window\" only "
-            "finds native (gamescope) floating windows.")
+            "Where the mic button lives. \"Right of the Steam bar\" is fixed in "
+            "the room with the bar and the window above it; \"Bottom of view\" "
+            "follows your head; \"On each window\" only finds native "
+            "(gamescope) floating windows.")
         form.addRow("Mic position", self.window_mic_anchor)
         self._window_mic_reason = window_mic_unavailable_reason()
         if self._window_mic_reason:
