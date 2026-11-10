@@ -64,6 +64,21 @@ inspired by it, the code is not copied from it (see below).
   (`frameassist/vrws.py`): SteamVR's own binding-page web socket on
   `127.0.0.1:27062`, which reports Frame controller buttons in any context.
 
+## whisper-frame (per-window mic technique)
+
+- Project: https://github.com/groffta/whisper-frame
+- License: MIT.
+
+FrameAssist's optional per-window mic button reuses the technique whisper-frame
+demonstrated for anchoring an overlay to a floating gamescope window:
+
+- `frameassist/overlay_point.c` — a headerless C shim that calls
+  `IVROverlay::GetTransformForOverlayCoordinates` with a real by-value
+  `HmdVector2_t`, adapted from whisper-frame's `overlay_point.c`;
+- the window discovery keyspace (`gamescope.gamescope-0.window.<seq>`), the
+  corner-probe placement maths and the mouse-input polling in
+  `frameassist/window_mic.py`, which follow its `whisper-panel` overlay.
+
 ## PySide6 / openvr
 
 - PySide6: LGPL-3.0 (Qt). Runtime dependency.

@@ -107,9 +107,11 @@ def same_user(sock):
 
 
 class _Connector:
-    def __init__(self, on_window, on_quit, settle=lambda: None):
+    def __init__(self, on_window, on_quit, settle=lambda: None,
+                 on_settings=lambda: None):
         self.on_window, self.on_quit = on_window, on_quit
         self.settle = settle
+        self.on_settings = on_settings
         self.last_text = ""
         self.windows = 0
         self._lock = threading.Lock()
@@ -174,6 +176,13 @@ class _Connector:
                 message = receive(stream)
                 if isinstance(message.get("last_text"), str):
                     self.last_text = message["last_text"]
+                if message.get("settings"):
+                    # Settings edited in the window apply to this copy right
+                    # away, without waiting for the window to close.
+                    try:
+                        self.on_settings()
+                    except Exception:
+                        pass
                 if message.get("quit"):
                     quit_all = True
         except (OSError, ValueError):
@@ -242,6 +251,9 @@ class Link:
     def send_last(self, text):
         self._send({"last_text": text})
 
+    def reload_settings(self):
+        self._send({"settings": True})
+
     def quit(self):
         self._send({"quit": True})
 
@@ -298,7 +310,8 @@ class Background:
         self.vr.set_gesture_engine(self.engine_gestures())
         self.vr.hold = True
         self.engine.paused = True
-        self.server = _Connector(self._window_changed, self._quit, self._settle)
+        self.server = _Connector(self._window_changed, self._quit, self._settle,
+                                 self._reload_settings)
 
     def engine_gestures(self):
         from .gestures import GestureEngine

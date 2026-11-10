@@ -31,6 +31,31 @@ def _install_kwin_rule():
         log.info("kwin rule install skipped: %s", err)
 
 
+def window_mic_for_window_copy(cfg, background_running):
+    """Whether the window copy should start its own per-window mic overlays.
+
+    The background copy is the one that keeps a SteamVR session alive through
+    hold and ticks the mic, so while it runs it owns the mics; a second set
+    from the window's process would put two plates on every window.
+    """
+    return bool(cfg.get("window_mic", False)) and not background_running
+
+
+def close_window(link, vr, engine, app):
+    """Close the window copy WITHOUT stopping the background copy.
+
+    The background hands the shortcuts over while our window is open and takes
+    them back the moment our connection ends, so closing the window only drops
+    the link. Sending ``quit`` here used to stop the service every time the GUI
+    closed (the 2026-11-09 conflict: "quit from the window").
+    """
+    if link is not None:
+        link.close()
+    vr.stop()
+    engine.close()
+    app.quit()
+
+
 def run_window(cfg):
     """The window copy. Installs the KWin rule, starts the speech model load,
     connects its gestures to SteamVR (stepping aside if a background copy has
@@ -52,14 +77,26 @@ def run_window(cfg):
     link = service.Link.open() if background_running else None
 
     engine = Engine(cfg, copy_clipboard=_copy_clipboard)
+    # The background copy owns the window-mic overlays while it runs: its
+    # SteamVR session stays up through hold (so the mic's ctypes token stays
+    # valid) and it keeps ticking the mic. Only a standalone window starts its
+    # own mic set, or the user would see two plates per window.
     vr = SteamVR(in_games=cfg.get("in_games", False),
                  rest_while_streaming=cfg.get("rest_while_streaming", False),
-                 autolaunch=cfg.get("autostart", True))
+                 autolaunch=cfg.get("autostart", True),
+                 window_mic=window_mic_for_window_copy(cfg, background_running))
     vr.set_gesture_engine(GestureEngine(lambda cmd: engine.hotkey({"cmd": cmd})))
 
     def _on_settings_changed(new_cfg):
         vr.set_options(in_games=new_cfg.get("in_games", False),
                        rest_while_streaming=new_cfg.get("rest_while_streaming", False))
+        if link:
+            # The background copy is the one holding the SteamVR session that
+            # shows the window mics; ask it to re-read Settings now instead of
+            # starting a second mic set here.
+            link.reload_settings()
+        else:
+            vr.set_options(window_mic=bool(new_cfg.get("window_mic", False)))
         # Keep the Settings checkbox and the systemd autostart unit in sync:
         # toggling "Start automatically with SteamVR" here also enables or
         # disables the unit, matching the App-menu Turn off/Turn on behavior.
@@ -69,13 +106,8 @@ def run_window(cfg):
         except Exception:
             pass
 
-    def _on_quit():
-        if link:
-            link.quit()
-            link.close()
-        vr.stop()
-        engine.close()
-        app.quit()
+    def _on_close():
+        close_window(link, vr, engine, app)
 
     def _on_power(turn_on):
         from . import autostart
@@ -85,7 +117,7 @@ def run_window(cfg):
         return ok, summary
 
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
-                        on_quit=_on_quit, link=link,
+                        on_close=_on_close, link=link,
                         on_turn_on=vr.enable_global_input, on_power=_on_power)
 
     def _calibrate_overlay_factory():

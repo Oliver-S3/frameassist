@@ -359,13 +359,15 @@ class MainWindow(QMainWindow):
     state_sig = Signal(str, str)
     transcript_sig = Signal(str)
 
-    def __init__(self, cfg, engine, on_settings=None, on_quit=None, link=None,
+    def __init__(self, cfg, engine, on_settings=None, on_close=None, link=None,
                  on_turn_on=None, on_power=None):
         super().__init__()
         self.cfg = cfg
         self.engine = engine
         self.on_settings = on_settings
-        self.on_quit = on_quit
+        # Closing the window (X or App > Quit) must NOT stop the background
+        # copy: it takes the shortcuts back when our link drops.
+        self.on_close = on_close
         self.link = link
         # Called when the user taps "Turn on" for the SteamVR global-input
         # setting. Set by app.py to vr.enable_global_input.
@@ -542,7 +544,7 @@ class MainWindow(QMainWindow):
         menu.addAction(self.power_on_action)
 
         menu.addSeparator()
-        quit_action = QAction("Quit (window only, shortcuts keep running)", self)
+        quit_action = QAction("Quit window (shortcuts keep running)", self)
         quit_action.triggered.connect(lambda: self.close())
         menu.addAction(quit_action)
 
@@ -616,8 +618,8 @@ class MainWindow(QMainWindow):
             self.last_label.setText("(didn't catch that — try again)")
 
     def closeEvent(self, event):
-        if self.on_quit:
-            self.on_quit()
+        if self.on_close:
+            self.on_close()
         super().closeEvent(event)
 
 
@@ -780,10 +782,10 @@ class CalibrateDialog(QDialog):
         super().accept()
 
 
-def run_window(cfg, engine, on_settings=None, on_quit=None, link=None):
+def run_window(cfg, engine, on_settings=None, on_close=None, link=None):
     """Run the FrameAssist window. Returns the app exit code."""
     app = QApplication.instance() or QApplication(sys.argv[:1])
     _style(app)
-    window = MainWindow(cfg, engine, on_settings=on_settings, on_quit=on_quit, link=link)
+    window = MainWindow(cfg, engine, on_settings=on_settings, on_close=on_close, link=link)
     window.show()
     return app.exec()

@@ -58,6 +58,79 @@ def test_background_on_state_feeds_badge():
     assert stub.badge == [(eng_mod.WORKING, "Typing…")]
 
 
+# -- window close / window-mic ownership (GUI + service conflict) ------------
+
+def test_close_window_leaves_the_background_running():
+    """Closing the GUI must drop the link, never send quit.
+
+    Regression for 2026-11-09: closeEvent -> on_quit -> link.quit() stopped
+    frameassist.service every time the window closed."""
+    from frameassist import app as app_mod
+
+    class Link:
+        closed = quit_sent = False
+
+        def close(self):
+            self.closed = True
+
+        def quit(self):
+            self.quit_sent = True
+
+    class Vr:
+        stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    class Engine:
+        closed = False
+
+        def close(self):
+            self.closed = True
+
+    class App:
+        quit_called = False
+
+        def quit(self):
+            self.quit_called = True
+
+    link, vr, engine, app = Link(), Vr(), Engine(), App()
+    app_mod.close_window(link, vr, engine, app)
+    assert link.closed
+    assert not link.quit_sent
+    assert vr.stopped and engine.closed and app.quit_called
+
+
+def test_close_window_without_a_background_copy():
+    from frameassist import app as app_mod
+    called = []
+
+    class App:
+        def quit(self):
+            called.append("quit")
+
+    class Engine:
+        def close(self):
+            called.append("engine")
+
+    class Vr:
+        def stop(self):
+            called.append("vr")
+
+    app_mod.close_window(None, Vr(), Engine(), App())
+    assert sorted(called) == ["engine", "quit", "vr"]
+
+
+def test_window_copy_does_not_duplicate_the_background_mics():
+    """Only the background copy runs the per-window mics while it is up."""
+    from frameassist import app as app_mod
+    cfg = {"window_mic": True}
+    assert app_mod.window_mic_for_window_copy(cfg, background_running=True) is False
+    assert app_mod.window_mic_for_window_copy(cfg, background_running=False) is True
+    assert app_mod.window_mic_for_window_copy({"window_mic": False}, False) is False
+    assert app_mod.window_mic_for_window_copy({}, False) is False
+
+
 # -- streamed-PC CLI surface (--host-test, --check host line) ----------------
 
 class _OKDevice:

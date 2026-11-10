@@ -168,6 +168,11 @@ class SteamVR:
         self.vr = None
         self.badge = None
         self.mic = None            # frameassist.window_mic.WindowMic (optional)
+        # Serialises mic create/destroy/tick: Settings can toggle the window
+        # mic from the UI (or arrive over the window link) while the VR thread
+        # is ticking it. Destroying it under a live tick is a native crash, so
+        # only one thread touches the mic object at a time.
+        self._mic_lock = threading.RLock()
         self._mic_kept_logged = False
         # Read-only controller buttons from SteamVR's own web-socket stream
         # (vrws.py). It reports grips/sticks in any context — including the
@@ -235,46 +240,55 @@ class SteamVR:
 
     def _sync_mic(self):
         """Start/stop the per-window mic overlays to match self.window_mic."""
-        on = self.window_mic
-        if on and self.mic is None:
-            if self.vr is None:
-                return  # no SteamVR session yet; retried on the next toggle
-            try:
-                from . import window_mic as wm
-                reason = wm.unavailable_reason()
-                if reason:
-                    log.warning("window mic unavailable: %s", reason)
-                    return
-                api = wm.OverlayApi()
-                self.mic = wm.WindowMic(
-                    api, APP_KEY,
-                    on_command=lambda cmd, _seq: self.send_command(cmd),
-                    can_act=self._mic_can_act,
-                    engine_state=lambda: self.engine_state,
-                    enabled=True)
-                log.info("window mics enabled")
-            except Exception as err:
-                log.warning("window mics failed to start: %r", err)
+        with self._mic_lock:
+            on = self.window_mic
+            if on and self.mic is None:
+                if self.vr is None:
+                    return  # no SteamVR session yet; retried on the next toggle
+                try:
+                    from . import window_mic as wm
+                    reason = wm.unavailable_reason()
+                    if reason:
+                        log.warning("window mic unavailable: %s", reason)
+                        return
+                    api = wm.OverlayApi()
+                    self.mic = wm.WindowMic(
+                        api, APP_KEY,
+                        on_command=lambda cmd, _seq: self.send_command(cmd),
+                        can_act=self._mic_can_act,
+                        engine_state=lambda: self.engine_state,
+                        enabled=True)
+                    log.info("window mics enabled")
+                except Exception as err:
+                    log.warning("window mics failed to start: %r", err)
+                    self.mic = None
+            elif on and self.mic is not None:
+                # Called every hold pass / session start; log only on change so
+                # this can never flood (live flood 2026-11-09 19:10: 673 lines
+                # in 1000 from a 5 Hz hold loop).
+                if not self._mic_kept_logged:
+                    log.info("window mics kept (already running)")
+                    self._mic_kept_logged = True
+            elif not on and self.mic is not None:
+                try:
+                    self.mic.destroy()
+                    log.info("window mics disabled")
+                except Exception as err:
+                    log.warning("window mics failed to stop: %r", err)
+                try:
+                    self.mic.api.close()
+                except Exception:
+                    pass
                 self.mic = None
-        elif on and self.mic is not None:
-            # Called every hold pass / session start; log only on change so
-            # this can never flood (live flood 2026-11-09 19:10: 673 lines
-            # in 1000 from a 5 Hz hold loop).
-            if not self._mic_kept_logged:
-                log.info("window mics kept (already running)")
-                self._mic_kept_logged = True
-        elif not on and self.mic is not None:
-            try:
-                self.mic.destroy()
-                log.info("window mics disabled")
-            except Exception as err:
-                log.warning("window mics failed to stop: %r", err)
-            try:
-                self.mic.api.close()
-            except Exception:
-                pass
-            self.mic = None
-            self._mic_kept_logged = False
+                self._mic_kept_logged = False
+
+    def _tick_mic(self, now):
+        """Tick the mic under the lock, so a concurrent Settings toggle can't
+        destroy it mid-tick (native crash)."""
+        with self._mic_lock:
+            mic = self.mic
+            if mic is not None:
+                mic.tick(now)
 
     def open_bindings(self):
         if not self.connected:
@@ -325,11 +339,10 @@ class SteamVR:
                 # the session down while the mic api is alive SEGVs the
                 # runtime (live 2026-11-09 19:10 crash loop). Instead the
                 # session stays up and we simply skip the input work.
-                if self.mic is not None:
-                    try:
-                        self.mic.tick(self.clock())
-                    except Exception as err:
-                        log.warning("window mic tick (hold) failed: %r", err)
+                try:
+                    self._tick_mic(self.clock())
+                except Exception as err:
+                    log.warning("window mic tick (hold) failed: %r", err)
                 time.sleep(0.2)
                 continue
             try:
@@ -356,7 +369,8 @@ class SteamVR:
                 # VR_InitInternal under a live session SEGVs - live
                 # 2026-11-09 19:15-19:18).
                 while not self._stop and self.step():
-                    if self.mic is not None and self.mic.api_suspect:
+                    mic = self.mic
+                    if mic is not None and mic.api_suspect:
                         log.info("steamvr: cycling session to rebuild the "
                                  "window-mic overlay api")
                         break
@@ -372,7 +386,8 @@ class SteamVR:
                 # mic silently never ticks again (live 2026-11-09 18:46:
                 # heartbeats stopped the moment a session cycled and the mic
                 # never came back until the next service restart).
-                mic, self.mic = self.mic, None
+                with self._mic_lock:
+                    mic, self.mic = self.mic, None
                 if mic is not None:
                     try:
                         mic.destroy()
@@ -534,8 +549,7 @@ class SteamVR:
                 self.badge.show(*self._badge)
             if self.badge:
                 self.badge.tick()
-            if self.mic:
-                self.mic.tick(now)
+            self._tick_mic(now)
             return True
 
         # Leave the buttons to a game unless asked not to. With the Steam menu
@@ -596,8 +610,7 @@ class SteamVR:
             self.badge.show(*self._badge)
         if self.badge:
             self.badge.tick()
-        if self.mic:
-            self.mic.tick(now)
+        self._tick_mic(now)
         return True
 
     def _emit(self, buttons, now):

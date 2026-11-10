@@ -85,6 +85,43 @@ def test_status_roundtrip(tmp_path, monkeypatch):
     server.close()
 
 
+def test_closing_the_window_does_not_stop_the_background(tmp_path, monkeypatch):
+    """Closing the GUI drops the link; the background takes the shortcuts back.
+
+    Regression for 2026-11-09: the window copy sent "quit" from closeEvent, so
+    opening and closing the GUI stopped frameassist.service ("quit from the
+    window")."""
+    monkeypatch.setattr(s, "state_dir", lambda: tmp_path)
+    events = []
+    server = s._Connector(on_window=lambda on: events.append(("window", on)),
+                          on_quit=lambda: events.append(("quit", True)))
+    server.start()
+    link = s.Link.open(timeout=3)
+    assert link is not None
+    _wait_for(lambda: ("window", True) in events)
+    link.close()
+    _wait_for(lambda: ("window", False) in events)
+    time.sleep(0.1)
+    assert ("quit", True) not in events
+    server.close()
+
+
+def test_settings_message_reloads_the_background(tmp_path, monkeypatch):
+    """A Settings change in the window reaches the running background copy."""
+    monkeypatch.setattr(s, "state_dir", lambda: tmp_path)
+    events = []
+    server = s._Connector(on_window=lambda on: None,
+                          on_quit=lambda: None,
+                          on_settings=lambda: events.append("settings"))
+    server.start()
+    link = s.Link.open(timeout=3)
+    assert link is not None
+    link.reload_settings()
+    _wait_for(lambda: "settings" in events)
+    link.close()
+    server.close()
+
+
 def _wait_for(predicate, timeout=3.0):
     end = time.monotonic() + timeout
     while time.monotonic() < end:
