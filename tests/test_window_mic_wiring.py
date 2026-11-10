@@ -22,7 +22,8 @@ class Clock:
 class RecordingMic:
     """Stands in for WindowMic; records lifecycle calls."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, api=None, app_key=None, on_command=None, **kwargs):
+        self.on_command = on_command
         self.ticks = 0
         self.destroyed = False
 
@@ -132,6 +133,37 @@ def test_mic_can_act_refuses_when_held_or_busy(vr):
     assert svr._mic_can_act() is False
     svr.engine_state = "listening"
     assert svr._mic_can_act() is True
+
+
+def test_mic_talk_commands_reach_the_engine(vr, monkeypatch):
+    """Regression: the mic's on_command called SteamVR.send_command, which did
+    not exist — clicks were swallowed and nothing recorded (live 2026-11-09)."""
+    clock = Clock()
+    svr = SteamVR(clock=clock, window_mic=True)
+    svr.vr = vr
+    import frameassist.window_mic as wm
+    monkeypatch.setattr(wm, "unavailable_reason", lambda: None)
+    monkeypatch.setattr(wm, "OverlayApi", lambda: object())
+    monkeypatch.setattr(wm, "WindowMic", RecordingMic)
+    svr._sync_mic()
+    assert svr.mic is not None
+
+    commands = []
+
+    class Engine:
+        def on_command(self, cmd):
+            commands.append(cmd)
+
+    svr.set_gesture_engine(Engine())
+    svr.mic.on_command("talk_start", 49)
+    svr.mic.on_command("talk_stop", 49)
+    assert commands == ["talk_start", "talk_stop"]
+
+
+def test_mic_command_without_an_engine_is_safe():
+    svr = SteamVR(window_mic=False)
+    svr.send_command("talk_start")  # must not raise
+    assert svr.mic is None
 
 
 def test_show_state_feeds_engine_state(vr):

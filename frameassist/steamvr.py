@@ -290,6 +290,29 @@ class SteamVR:
             if mic is not None:
                 mic.tick(now)
 
+    def send_command(self, cmd):
+        """Deliver a command from the floating mic to the engine.
+
+        The mic ticks on the VR thread, the same thread that drives the
+        gesture engine, so the engine's command hook can be called directly.
+        NB: ``_sync_mic`` has always passed this method as the mic's
+        ``on_command``; it was never defined, so every mic click was swallowed
+        by ``WindowMic._emit``'s try/except (live 2026-11-09: clicked the mic,
+        it turned red, nothing recorded).
+        """
+        engine = self.engine
+        if engine is None:
+            self._warn_once("window mic: no gesture engine, command dropped")
+            return
+        on_command = getattr(engine, "on_command", None)
+        if on_command is None:
+            self._warn_once("window mic: gesture engine has no command hook")
+            return
+        try:
+            on_command(cmd)
+        except Exception as err:
+            log.warning("window mic: command %r failed: %r", cmd, err)
+
     def open_bindings(self):
         if not self.connected:
             return False
