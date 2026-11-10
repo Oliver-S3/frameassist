@@ -131,6 +131,10 @@ BAR_RIGHT = 0.312   # metres right of the window centre (bar end + gap)
 BAR_GAP_Y = 0.195   # metres below the window's bottom edge (bar centre)
 BAR_FRONT = 0.212   # metres toward the viewer (flush with the bar's plane)
 BAR_SEQ = 0
+# Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
+# newest-seq window). Only landscape windows are candidates for the bar anchor;
+# portrait windows (a phone-shaped app, the Settings dialog) are skipped.
+BAR_MIN_ASPECT = 1.25
 
 # Easing. Short, so the mic stays on the glass during a stepped sample.
 SMOOTH_S = 0.01
@@ -155,6 +159,7 @@ FN = {
     "set_sort": 20,
     "set_width": 22,
     "get_width": 23,
+    "get_transform_type": 32,
     "set_absolute": 33,
     "show": 43,
     "hide": 44,
@@ -290,6 +295,18 @@ def corner_target(center, width, height, right_u, up_u, facing,
     )
 
 
+def bar_window(api, windows):
+    """The seq of the landscape window the Steam bar sits under, or None.
+
+    ``windows`` maps seq -> overlay handle. Prefer the newest landscape window;
+    fall back to the newest window at all if none reports a usable size."""
+    for seq in sorted(windows, reverse=True):
+        scale = api.get_mouse_scale(windows[seq])
+        if scale and scale[1] > 0 and scale[0] / scale[1] >= BAR_MIN_ASPECT:
+            return seq
+    return max(windows) if windows else None
+
+
 def absolute_matrix(center, right_u, up_u, facing):
     """Build a flat 12-float standing-space matrix from a basis and a centre."""
     m = [0.0] * 12
@@ -395,6 +412,8 @@ class OverlayApi:
                                 ctypes.POINTER(_Vec2))
         self._set_raw = bind(FN["set_raw"], i32, u64, ctypes.c_void_p,
                              ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32)
+        self._get_tt = bind(FN["get_transform_type"], i32, u64,
+                            ctypes.POINTER(i32))
 
         self.glue = ctypes.CDLL(str(shim_path or SHIM))
         self.glue.frameassist_overlay_point.argtypes = [
@@ -466,6 +485,13 @@ class OverlayApi:
         v = _Vec2(float(w), float(h))
         self._check("setOverlayMouseScale",
                     self._set_mscale(ctypes.c_uint64(handle), ctypes.byref(v)))
+
+    def get_transform_type(self, handle):
+        """The overlay's VRTransformType (0 = Absolute), or None."""
+        t = ctypes.c_int(-1)
+        if self._get_tt(ctypes.c_uint64(handle), ctypes.byref(t)) == 0:
+            return t.value
+        return None
 
     def get_mouse_scale(self, handle):
         v = _Vec2()
@@ -579,6 +605,7 @@ class WindowMic:
         self._take_since = 0.0
         self._pressed_at = None
         self._last_tick = None
+        self._bar_seq = None       # window the bar mic is anchored to
         self._empty_since = None   # first scan of the current zero-window run
         self._last_beat = None     # last heartbeat log
         self.api_suspect = False   # set after a zero-window drought
@@ -643,10 +670,11 @@ class WindowMic:
     # -- Steam-bar mic -----------------------------------------------------
 
     def _sync_bar(self, now, dt):
-        """Keep ONE mic at the right end of the Steam bar under the active
-        window. The bar is fixed in the room; the active window (newest seq)
-        is attached above it, so the bar's pose is the window quad plus fixed
-        offsets."""
+        """Keep ONE mic at the right end of the Steam bar under the desktop
+        window. The bar is fixed in the room; the desktop window is attached
+        above it, so the bar's pose is the window quad plus fixed offsets.
+        Portrait windows (the app's own Settings dialog) are ignored: they
+        became the newest seq and parked the plate on the dialog."""
         if now - self._last_scan < SCAN_S:
             return
         self._last_scan = now
@@ -657,8 +685,17 @@ class WindowMic:
                 self.api.hide(mic.handle)
                 mic.hidden = True
             return
-        seq = max(windows)
+        seq = bar_window(self.api, windows)
+        if seq is None:
+            if mic is not None and not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            return
         win_handle = windows[seq]
+        if seq != self._bar_seq:
+            self._bar_seq = seq
+            log.info("window mic: bar anchor window.%d (type %s)", seq,
+                     self.api.get_transform_type(win_handle))
         if mic is None:
             key = f"{self.app_key}.mic.bar"
             handle = self.api.find(key) or self.api.create(

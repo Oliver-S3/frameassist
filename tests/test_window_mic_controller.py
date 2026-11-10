@@ -90,6 +90,9 @@ class FakeApi:
     def set_mouse_scale(self, handle, w, h):
         pass
 
+    def get_transform_type(self, handle):
+        return 0
+
     def get_mouse_scale(self, handle):
         for info in self.windows.values():
             if info["handle"] == handle:
