@@ -127,14 +127,6 @@ HUD_SEQ = 0
 # the active window sits just above it, so the bar's pose can be derived from
 # the window's quad. The mic sits at the bar's right end, at bar centre height.
 # Offsets measured live 2026-11-10 13:20 from the compositor frame.
-# The Steam bar itself is an Absolute overlay. Pinning to its own transform
-# keeps the plate on the dock when the active window changes (a streamed PC
-# window is a vrlink texture, not a gamescope overlay, so the window-derived
-# fallback below drifts off the dock).
-DOCK_KEY = "valve.steam.gamepadui.bar"
-DOCK_GAP = 0.075    # plate centre beyond the bar's right edge (5 cm plate + gap)
-DOCK_FRONT = 0.02   # just in front of the bar's plane
-
 BAR_RIGHT = 0.312   # metres right of the window centre (bar end + gap)
 BAR_GAP_Y = 0.195   # metres below the window's bottom edge (bar centre)
 BAR_FRONT = 0.212   # metres toward the viewer (flush with the bar's plane)
@@ -163,7 +155,6 @@ FN = {
     "set_sort": 20,
     "set_width": 22,
     "get_width": 23,
-    "get_absolute": 34,
     "set_absolute": 33,
     "show": 43,
     "hide": 44,
@@ -299,37 +290,6 @@ def corner_target(center, width, height, right_u, up_u, facing,
     )
 
 
-def _dock_pose(m, width):
-    """(target, right_u, up_u, facing) for the plate just right of the bar.
-
-    The bar's absolute matrix carries Steam's dock scale (0.369 on this
-    runtime), so its displayed half-width is width * scale / 2. Returns None
-    while the dock is down (the transform reads all zeros)."""
-    if not m:
-        return None
-    tx, ty, tz = m[3], m[7], m[11]
-    rx = (m[0], m[4], m[8])
-    ry = (m[1], m[5], m[9])
-    scale = math.sqrt(rx[0] ** 2 + rx[1] ** 2 + rx[2] ** 2)
-    if scale < 1e-3 or (tx == 0.0 and ty == 0.0 and tz == 0.0):
-        return None
-    right_u = tuple(v / scale for v in rx)
-    up_u = tuple(v / scale for v in ry)
-    if up_u[1] < 0:  # texture y points down; keep the plate upright
-        up_u = tuple(-v for v in up_u)
-    facing = (
-        right_u[1] * up_u[2] - right_u[2] * up_u[1],
-        right_u[2] * up_u[0] - right_u[0] * up_u[2],
-        right_u[0] * up_u[1] - right_u[1] * up_u[0],
-    )
-    half = (width or 1.0) * scale / 2.0
-    target = tuple(
-        t + r * (half + DOCK_GAP) + f * DOCK_FRONT
-        for t, r, f in zip((tx, ty, tz), right_u, facing)
-    )
-    return target, right_u, up_u, facing
-
-
 def absolute_matrix(center, right_u, up_u, facing):
     """Build a flat 12-float standing-space matrix from a basis and a centre."""
     m = [0.0] * 12
@@ -435,10 +395,6 @@ class OverlayApi:
                                 ctypes.POINTER(_Vec2))
         self._set_raw = bind(FN["set_raw"], i32, u64, ctypes.c_void_p,
                              ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32)
-        self._get_absolute = bind(FN["get_absolute"], i32, u64,
-                                  ctypes.POINTER(i32), ctypes.POINTER(_Mat))
-        self._get_width = bind(FN["get_width"], i32, u64,
-                               ctypes.POINTER(f32))
 
         self.glue = ctypes.CDLL(str(shim_path or SHIM))
         self.glue.frameassist_overlay_point.argtypes = [
@@ -517,22 +473,6 @@ class OverlayApi:
                             ctypes.byref(v)) == 0:
             return (v.x, v.y)
         return None
-
-    def get_absolute(self, handle):
-        """The overlay's absolute transform as 12 row-major floats, or None."""
-        origin = ctypes.c_int(0)
-        m = _Mat()
-        if self._get_absolute(ctypes.c_uint64(handle),
-                              ctypes.byref(origin),
-                              ctypes.byref(m)) == 0:
-            return list(m.m)
-        return None
-
-    def get_width(self, handle):
-        w = ctypes.c_float(0.0)
-        if self._get_width(ctypes.c_uint64(handle), ctypes.byref(w)) == 0:
-            return w.value
-        return 0.0
 
     def set_raw(self, handle, rgba, w, h):
         buf = ctypes.create_string_buffer(bytes(rgba), len(rgba))
@@ -639,7 +579,6 @@ class WindowMic:
         self._take_since = 0.0
         self._pressed_at = None
         self._last_tick = None
-        self._dock = None          # cached (target, right, up, facing) dock pose
         self._empty_since = None   # first scan of the current zero-window run
         self._last_beat = None     # last heartbeat log
         self.api_suspect = False   # set after a zero-window drought
@@ -704,33 +643,22 @@ class WindowMic:
     # -- Steam-bar mic -----------------------------------------------------
 
     def _sync_bar(self, now, dt):
-        """Keep ONE mic at the right end of the Steam bar.
-
-        The bar is an Absolute overlay (valve.steam.gamepadui.bar): its own
-        transform pins the plate to the dock, so the mic follows the bar when
-        the active window changes (a streamed PC window is a vrlink texture,
-        not a gamescope overlay). The window-derived pose stays as the fallback
-        for sessions where a bar pose has not been read yet."""
+        """Keep ONE mic at the right end of the Steam bar under the active
+        window. The bar is fixed in the room; the active window (newest seq)
+        is attached above it, so the bar's pose is the window quad plus fixed
+        offsets."""
         if now - self._last_scan < SCAN_S:
             return
         self._last_scan = now
+        windows = self._scan_windows()
         mic = self._mics.get(BAR_SEQ)
-        win_handle = None
-        matrix = self._dock_matrix()
-        if matrix is None:
-            windows = self._scan_windows()
-            if not windows:
-                if mic is not None and not mic.hidden:
-                    self.api.hide(mic.handle)
-                    mic.hidden = True
-                return
-            win_handle = windows[max(windows)]
-            matrix = self._bar_matrix(win_handle)
-            if matrix is None:
-                if mic is not None and not mic.hidden:
-                    self.api.hide(mic.handle)
-                    mic.hidden = True
-                return
+        if not windows:
+            if mic is not None and not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            return
+        seq = max(windows)
+        win_handle = windows[seq]
         if mic is None:
             key = f"{self.app_key}.mic.bar"
             handle = self.api.find(key) or self.api.create(
@@ -741,22 +669,15 @@ class WindowMic:
             self._mics[BAR_SEQ] = mic
             log.info("window mic: Steam-bar mic shown")
         mic.win_handle = win_handle
+        matrix = self._bar_matrix(win_handle)
+        if matrix is None:
+            if not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            return
         self.api.set_absolute(mic.handle, STANDING, matrix)
         self.api.show(mic.handle)
         mic.hidden = False
-
-    def _dock_matrix(self):
-        """Standing-space transform for the plate on the Steam bar."""
-        handle = self.api.find(DOCK_KEY)
-        if handle:
-            pose = _dock_pose(self.api.get_absolute(handle),
-                              self.api.get_width(handle))
-            if pose is not None:
-                self._dock = pose
-        if self._dock is None:
-            return None
-        target, right_u, up_u, facing = self._dock
-        return absolute_matrix(target, right_u, up_u, facing)
 
     def _bar_matrix(self, win_handle):
         """Standing-space transform for the mic centre at the bar's right
