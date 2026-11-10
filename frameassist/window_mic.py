@@ -127,9 +127,9 @@ HUD_SEQ = 0
 # the active window sits just above it, so the bar's pose can be derived from
 # the window's quad. The mic sits at the bar's right end, at bar centre height.
 # Offsets measured live 2026-11-10 13:20 from the compositor frame.
-BAR_RIGHT = 0.238   # metres right of the window centre (bar end + gap)
-BAR_GAP_Y = 0.080   # metres below the window's bottom edge (bar centre)
-BAR_FRONT = 0.02    # metres toward the viewer, off the window's plane
+BAR_RIGHT = 0.312   # metres right of the window centre (bar end + gap)
+BAR_GAP_Y = 0.195   # metres below the window's bottom edge (bar centre)
+BAR_FRONT = 0.212   # metres toward the viewer (flush with the bar's plane)
 BAR_SEQ = 0
 
 # Easing. Short, so the mic stays on the glass during a stepped sample.
