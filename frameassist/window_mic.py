@@ -96,10 +96,12 @@ PLATE_METERS = 0.05
 # inset is a fraction of the quad width, tuned so the plate lands just inside
 # the visible bottom-right corner.
 RIGHT_INSET = PLATE_METERS / 2 + 0.02
-INSIDE_FRACTION = 0.06   # pull the plate this fraction of the quad width inward
+INSIDE_FRACTION = 0.03   # pull the plate this fraction of the quad width inward
 BELOW = 0.03
 # Along the facing axis, which points at the viewer on these windows.
-TOWARD_VIEWER = 0.005
+# 0.02 (not 0.005) so the plate clears the window surface during a resize,
+# when the probed quad is stale and the plate can otherwise clip through.
+TOWARD_VIEWER = 0.02
 
 # Easing. Short, so the mic stays on the glass during a stepped sample.
 SMOOTH_S = 0.01
