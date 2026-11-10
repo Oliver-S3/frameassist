@@ -12,8 +12,8 @@ from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
-    QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu, QPushButton,
-    QVBoxLayout, QWidget,
+    QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu,
+    QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
 
 from . import __version__
@@ -120,8 +120,22 @@ class SettingsDialog(QDialog):
         super().__init__(parent)
         self.cfg = cfg
         self.setWindowTitle("Settings")
-        self.setMinimumWidth(420)
-        form = QFormLayout(self)
+        self.setMinimumWidth(440)
+        self.resize(460, 640)
+        # The form grew past a small screen's height, so put it in a scroll
+        # area (Save/Cancel stay pinned below it).
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(6, 6, 6, 8)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        inner = QWidget()
+        form = QFormLayout(inner)
+        form.setContentsMargins(4, 4, 10, 4)
+        form.setVerticalSpacing(8)
+        form.setHorizontalSpacing(14)
+        scroll.setWidget(inner)
+        outer.addWidget(scroll, 1)
 
         self.model = QComboBox()
         for key, label in MODELS.items():
@@ -169,6 +183,11 @@ class SettingsDialog(QDialog):
         self.host_secret.setEchoMode(QLineEdit.Password)
         self.host_secret.setPlaceholderText("pairing code from the PC helper")
         self._add_host_row(form, "Pairing code", self.host_secret)
+
+        self.host_window = QLineEdit(cfg.get("host_window", ""))
+        self.host_window.setPlaceholderText(
+            "title contains, e.g. 3Dprinting — empty = the PC's focused window")
+        self._add_host_row(form, "PC window", self.host_window)
 
         test_host = QWidget()
         test_row = QHBoxLayout(test_host)
@@ -235,6 +254,16 @@ class SettingsDialog(QDialog):
             "follows your head; \"On each window\" only finds native "
             "(gamescope) floating windows.")
         form.addRow("Mic position", self.window_mic_anchor)
+
+        self.grips_with_mic = QCheckBox(
+            "Also use the grip gestures while the mic button is showing")
+        self.grips_with_mic.setChecked(cfg.get("grips_with_mic", True))
+        self.grips_with_mic.setToolTip(
+            "Checked: both activation styles are live (hold both grips OR click "
+            "the mic button). Unchecked: mic button only — the grips stop "
+            "activating dictation while the mic button is on. Turn the mic "
+            "button off to use the grips alone.")
+        form.addRow("Grips + mic", self.grips_with_mic)
         self._window_mic_reason = window_mic_unavailable_reason()
         if self._window_mic_reason:
             self.window_mic.setEnabled(False)
@@ -275,7 +304,7 @@ class SettingsDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.Save | QDialogButtonBox.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
-        form.addRow(buttons)
+        outer.addWidget(buttons)
 
         version_label = QLabel(f"FrameAssist {__version__}")
         version_label.setObjectName("muted")
@@ -293,7 +322,7 @@ class SettingsDialog(QDialog):
         bottom_row.addWidget(version_label, 0)
         bottom_row.addSpacing(16)
         bottom_row.addWidget(echo_note, 1)
-        form.addRow(bottom_row)
+        outer.addLayout(bottom_row)
 
     def _check_update(self):
         from .update import run_self_update
@@ -366,6 +395,8 @@ class SettingsDialog(QDialog):
             "host_addr": self.host_addr.text().strip(),
             "host_port": host_port,
             "host_secret": self.host_secret.text().strip(),
+            "host_window": self.host_window.text().strip(),
+            "grips_with_mic": self.grips_with_mic.isChecked(),
         }
 
 

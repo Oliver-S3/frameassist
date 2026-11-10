@@ -44,6 +44,7 @@ DEFAULTS = {
     "host_addr": "",
     "host_port": 8763,
     "host_secret": "",
+    "host_window": "",
     # Optional: a small mic button you can hold with the laser to dictate
     # instead of using the grips. Opt-in and off by default. "bar" (default)
     # parks one at the right end of the Steam bar under the active window, so
@@ -52,6 +53,10 @@ DEFAULTS = {
     # need the native overlay_point.so helper that install.sh builds.
     "window_mic": False,
     "window_mic_anchor": "bar",
+    # When the mic button is on, should the grip gestures stay live too?
+    # True = both activation methods work at once; False = the grips are paused
+    # while the mic button is showing (mic-only users).
+    "grips_with_mic": True,
 }
 
 # Known keys, so an old config with a bad value is repaired, not trusted.

@@ -111,8 +111,10 @@ def handle_line(secret, state, line):
 
       * ``reply`` is the dict to send back — ``{"ok": True}`` on success or
         ``{"ok": False, "error": <message>}`` on any rejection/failure; and
-      * ``action`` is ``(op, text)`` when the caller should call
-        ``inject(op, text)``, or ``None`` when nothing should be injected.
+      * ``action`` is ``(op, text, window)`` when the caller should call
+        ``inject(op, text, window)``, or ``None`` when nothing should be
+        injected. ``window`` is the optional title substring the headset sent
+        (empty means "type into whatever window has focus").
 
     ``state`` is a small mutable dict held for the lifetime of one connection;
     it tracks ``last_seq`` (initialised to -1 so the first request's seq of 0 is
@@ -147,9 +149,14 @@ def handle_line(secret, state, line):
         state["last_seq"] = seq
         return {"ok": False, "error": "text required"}, None
 
+    window = message.get("window", "")
+    if not isinstance(window, str):
+        state["last_seq"] = seq
+        return {"ok": False, "error": "bad window"}, None
+
     # Accepted: advance the per-connection counter and hand back the action.
     state["last_seq"] = seq
-    return {"ok": True}, (op, text)
+    return {"ok": True}, (op, text, window)
 
 
 # -- Win32 injection (thin seam; NOT exercised in automated tests) ------------
@@ -317,39 +324,126 @@ def _set_clipboard(text):
         user32.CloseClipboard()
 
 
-def inject(op, text):
+# -- optional window targeting -------------------------------------------------
+#
+# By default the helper types into the PC's *foreground* window. That is right
+# for a PC desktop being watched, but wrong when the user is looking at a
+# streamed window on the headset: the foreground on the PC can be anything (a
+# browser tab they were reading, the companion's console, …). The headset can
+# send a title substring; the helper then focuses the matching window first and
+# restores the previous foreground afterwards.
+SW_RESTORE = 9
+
+
+def _window_matches(title, wanted):
+    """Case-insensitive substring test (pure; unit-tested)."""
+    return bool(wanted) and wanted.lower() in title.lower()
+
+
+def _window_title(user32, hwnd):
+    buf = ctypes.create_unicode_buffer(512)
+    user32.GetWindowTextW(hwnd, buf, 512)
+    return buf.value
+
+
+def _find_window(user32, wanted):
+    """Topmost visible top-level window whose title contains ``wanted``."""
+    found = []
+    proc = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_void_p, ctypes.c_void_p)
+
+    def _cb(hwnd, _lparam):
+        try:
+            if not user32.IsWindowVisible(hwnd):
+                return True
+            title = _window_title(user32, hwnd)
+            if _window_matches(title, wanted):
+                found.append(hwnd)
+                return False  # EnumWindows is Z-order: first match is topmost
+        except Exception:
+            pass
+        return True
+
+    user32.EnumWindows(proc(_cb), 0)
+    return found[0] if found else 0
+
+
+def _focus_window(user32, hwnd):
+    """Best-effort foreground switch; Windows blocks it for background callers,
+    so attach to the current foreground thread first (the usual workaround)."""
+    try:
+        user32.ShowWindow(hwnd, SW_RESTORE)
+        fg = user32.GetForegroundWindow()
+        if fg == hwnd:
+            return True
+        fg_thread = user32.GetWindowThreadProcessId(fg, None)
+        my_thread = _kernel32().GetCurrentThreadId()
+        attached = False
+        if fg_thread and fg_thread != my_thread:
+            attached = bool(user32.AttachThreadInput(my_thread, fg_thread, True))
+        try:
+            user32.SetForegroundWindow(hwnd)
+            user32.BringWindowToTop(hwnd)
+        finally:
+            if attached:
+                user32.AttachThreadInput(my_thread, fg_thread, False)
+        return user32.GetForegroundWindow() == hwnd
+    except Exception as exc:
+        print("[focus] failed: %s" % exc, flush=True)
+        return False
+
+
+def inject(op, text, window=""):
     """The single injection seam. Routes an accepted op to Win32.
 
-    ``ping`` is a no-op. This is the ONLY place that touches user32/kernel32, so
-    tests can replace it wholesale.
+    ``ping`` is a no-op. When ``window`` is non-empty, focus the matching
+    window first (and restore the previous foreground after typing). This is
+    the ONLY place that touches user32/kernel32, so tests can replace it
+    wholesale.
     """
     if op == "ping":
         return
     user32 = _user32()
-    # Diagnostic (kept in production): reveal what SendInput targets and whether
-    # the OS accepted the events. SendInput returns 0 when nothing was injected;
-    # the foreground title tells us which window the helper believes is active.
+    previous = 0
+    target = 0
+    if window:
+        previous = user32.GetForegroundWindow()
+        if _window_matches(_window_title(user32, previous), window):
+            target = previous  # already the right window: leave focus alone
+        else:
+            target = _find_window(user32, window)
+            if not target:
+                raise OSError("no window title containing %r" % (window,))
+            if not _focus_window(user32, target):
+                raise OSError("could not focus a window matching %r" % (window,))
+            time.sleep(0.15)
     try:
-        fg = user32.GetForegroundWindow()
-        title = ctypes.create_unicode_buffer(512)
-        user32.GetWindowTextW(fg, title, 512)
-        print("[inject] op=%s foreground=%r hwnd=%s" % (op, title.value, fg), flush=True)
-    except Exception as exc:
-        print("[inject] foreground query failed: %s" % exc, flush=True)
-    if op == "type":
-        _type_unicode(user32, text)
-    elif op == "enter":
-        _tap_vk(user32, VK_RETURN)
-    elif op == "escape":
-        _tap_vk(user32, VK_ESCAPE)
-    elif op == "backspace":
-        _tap_vk(user32, VK_BACK)
-    elif op == "paste":
-        _paste(user32)
-    elif op == "copy":
-        _set_clipboard(text)
-    else:
-        raise ValueError("unknown op: %r" % (op,))
+        # Diagnostic (kept in production): reveal what SendInput targets and
+        # whether the OS accepted the events. SendInput returns 0 when nothing
+        # was injected; the foreground title tells us which window is active.
+        try:
+            fg = user32.GetForegroundWindow()
+            title = ctypes.create_unicode_buffer(512)
+            user32.GetWindowTextW(fg, title, 512)
+            print("[inject] op=%s foreground=%r hwnd=%s" % (op, title.value, fg), flush=True)
+        except Exception as exc:
+            print("[inject] foreground query failed: %s" % exc, flush=True)
+        if op == "type":
+            _type_unicode(user32, text)
+        elif op == "enter":
+            _tap_vk(user32, VK_RETURN)
+        elif op == "escape":
+            _tap_vk(user32, VK_ESCAPE)
+        elif op == "backspace":
+            _tap_vk(user32, VK_BACK)
+        elif op == "paste":
+            _paste(user32)
+        elif op == "copy":
+            _set_clipboard(text)
+        else:
+            raise ValueError("unknown op: %r" % (op,))
+    finally:
+        if target and previous and previous != target:
+            _focus_window(user32, previous)
 
 
 # -- connection serving -------------------------------------------------------
@@ -369,9 +463,9 @@ def _serve(conn, secret):
                 break
             reply, action = handle_line(secret, state, line)
             if action is not None:
-                op, text = action
+                op, text, window = action
                 try:
-                    inject(op, text)
+                    inject(op, text, window)
                 except Exception as exc:  # never let one bad op kill the thread
                     reply = {"ok": False, "error": "inject failed: %s" % (exc,)}
             _send(conn, reply)

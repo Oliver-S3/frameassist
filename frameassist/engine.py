@@ -271,9 +271,11 @@ class Engine:
         # _reload_settings -> cfg.update) transparently rebuilds it.
         key = (self.cfg.get("host_addr", ""),
                self.cfg.get("host_port", 8763),
-               self.cfg.get("host_secret", ""))
+               self.cfg.get("host_secret", ""),
+               self.cfg.get("host_window", ""))
         if self._host is None or self._host_key != key:
-            self._host = HostTypist(*key)
+            addr, port, secret, window = key
+            self._host = HostTypist(addr, port, secret, window=window)
             self._host_key = key
         return self._host
 

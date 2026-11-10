@@ -93,7 +93,7 @@ def test_fixed_vector_companion_agrees():
     # ...and the pure handler accepts it and dispatches the right action.
     reply, action = host.handle_line(VECTOR_SECRET, {"last_seq": -1}, json.dumps(good))
     assert reply == {"ok": True}
-    assert action == ("type", "h\u00e9llo \U0001F389")
+    assert action == ("type", "h\u00e9llo \U0001F389", "")
     # A wrong digest for the same body is rejected by the companion too.
     bad = dict(VECTOR_BODY, hmac="00" * 32)
     assert host.verify_hmac(VECTOR_SECRET, bad) is False
@@ -107,7 +107,7 @@ def test_handle_line_shortcut_ops(op):
     line = _line(secret, v=1, op=op, seq=0)
     reply, action = host.handle_line(secret, {"last_seq": -1}, line)
     assert reply == {"ok": True}
-    assert action == (op, "")
+    assert action == (op, "", "")
 
 
 def test_handle_line_type_verbatim_unicode():
@@ -115,14 +115,36 @@ def test_handle_line_type_verbatim_unicode():
     line = _line(secret, v=1, op="type", seq=0, text="h\u00e9llo \U0001F389")
     reply, action = host.handle_line(secret, {"last_seq": -1}, line)
     assert reply == {"ok": True}
-    assert action == ("type", "h\u00e9llo \U0001F389")  # verbatim, no mangling
+    assert action == ("type", "h\u00e9llo \U0001F389", "")  # verbatim, no mangling
 
 
 def test_handle_line_copy_carries_text():
     secret = "S3CRET"
     line = _line(secret, v=1, op="copy", seq=0, text="clipboard contents")
     reply, action = host.handle_line(secret, {"last_seq": -1}, line)
-    assert action == ("copy", "clipboard contents")
+    assert action == ("copy", "clipboard contents", "")
+
+
+def test_handle_line_carries_window_hint():
+    secret = "S3CRET"
+    line = _line(secret, v=1, op="type", seq=0, text="hi", window="3Dprinting")
+    reply, action = host.handle_line(secret, {"last_seq": -1}, line)
+    assert reply["ok"] is True
+    assert action == ("type", "hi", "3Dprinting")
+
+
+def test_handle_line_rejects_non_string_window():
+    secret = "S3CRET"
+    line = _line(secret, v=1, op="type", seq=0, text="hi", window=7)
+    reply, action = host.handle_line(secret, {"last_seq": -1}, line)
+    assert reply["ok"] is False and action is None
+
+
+def test_window_matches_case_insensitive_substring():
+    assert host._window_matches("Comment - 3Dprinting - Google Chrome", "3DPrinting")
+    assert host._window_matches("Notepad", "notepad")
+    assert not host._window_matches("oliver \u00b7 DSH - Google Chrome", "3Dprinting")
+    assert not host._window_matches("anything", "")
 
 
 def test_handle_line_unknown_op_rejected():
@@ -222,8 +244,8 @@ def companion_server(monkeypatch):
     _user32 guarded, so no Win32 is ever touched."""
     calls = []
 
-    def spy_inject(op, text):
-        calls.append((op, text))
+    def spy_inject(op, text, window=""):
+        calls.append((op, text, window))
 
     def boom():
         raise AssertionError("Win32 user32 must never be reached in tests")
@@ -274,12 +296,23 @@ def test_loopback_interop_client_to_companion(companion_server):
     # The spy received exactly the expected ops, in order — the headset client
     # and this independent companion agree on the wire (F2's cross-impl goal).
     assert calls == [
-        ("type", "h\u00e9llo \U0001F389"),
-        ("ping", ""),
-        ("copy", "clip"),
-        ("enter", ""),
-        ("paste", ""),
+        ("type", "h\u00e9llo \U0001F389", ""),
+        ("ping", "", ""),
+        ("copy", "clip", ""),
+        ("enter", "", ""),
+        ("paste", "", ""),
     ]
+
+
+def test_loopback_window_hint_reaches_the_companion(companion_server):
+    port, calls = companion_server
+    client = HostTypist("127.0.0.1", port, SERVER_SECRET, timeout=3.0,
+                        window="3Dprinting")
+    try:
+        client.type_text("hi")
+    finally:
+        client.close()
+    assert calls == [("type", "hi", "3Dprinting")]
 
 
 def test_loopback_wrong_secret_is_rejected_by_companion(companion_server):
@@ -302,4 +335,4 @@ def test_user32_guard_is_never_triggered(companion_server):
         client.type_text("x")
     finally:
         client.close()
-    assert calls == [("type", "x")]
+    assert calls == [("type", "x", "")]

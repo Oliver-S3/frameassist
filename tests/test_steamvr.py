@@ -60,6 +60,36 @@ def _step_button(svr, button, down, now):
     svr.step()
 
 
+def test_grips_paused_while_the_mic_button_is_on(vr):
+    clock = Clock()
+    svr = SteamVR(clock=clock, window_mic=True, grips_with_mic=False)
+    got = []
+    svr.set_gesture_engine(GestureEngine(lambda cmd: got.append(cmd)))
+    svr.open(vr)
+    for b in ("grip_l", "grip_r"):
+        _step_button(svr, b, True, 0.05)
+        clock.advance()
+    for _ in range(40):
+        svr.step()
+        clock.advance()
+    assert "talk_start" not in got  # mic-only: the grips are ignored
+
+
+def test_grips_stay_live_while_the_mic_button_is_on(vr):
+    clock = Clock()
+    svr = SteamVR(clock=clock, window_mic=True, grips_with_mic=True)
+    got = []
+    svr.set_gesture_engine(GestureEngine(lambda cmd: got.append(cmd)))
+    svr.open(vr)
+    for b in ("grip_l", "grip_r"):
+        _step_button(svr, b, True, 0.05)
+        clock.advance()
+    for _ in range(40):
+        svr.step()
+        clock.advance()
+    assert "talk_start" in got  # both activation styles live
+
+
 def test_hold_both_grips_reaches_engine(vr):
     clock = Clock()
     svr, got = _make_vr(clock)

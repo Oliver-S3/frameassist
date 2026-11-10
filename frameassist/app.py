@@ -85,7 +85,8 @@ def run_window(cfg):
                  rest_while_streaming=cfg.get("rest_while_streaming", False),
                  autolaunch=cfg.get("autostart", True),
                  window_mic=window_mic_for_window_copy(cfg, background_running),
-                 window_mic_anchor=cfg.get("window_mic_anchor", "hud"))
+                 window_mic_anchor=cfg.get("window_mic_anchor", "bar"),
+                 grips_with_mic=bool(cfg.get("grips_with_mic", True)))
     vr.set_gesture_engine(GestureEngine(lambda cmd: engine.hotkey({"cmd": cmd})))
 
     def _on_settings_changed(new_cfg):
@@ -99,7 +100,8 @@ def run_window(cfg):
         else:
             vr.set_options(
                 window_mic=bool(new_cfg.get("window_mic", False)),
-                window_mic_anchor=new_cfg.get("window_mic_anchor", "hud"))
+                window_mic_anchor=new_cfg.get("window_mic_anchor", "bar"),
+                grips_with_mic=bool(new_cfg.get("grips_with_mic", True)))
         # Keep the Settings checkbox and the systemd autostart unit in sync:
         # toggling "Start automatically with SteamVR" here also enables or
         # disables the unit, matching the App-menu Turn off/Turn on behavior.

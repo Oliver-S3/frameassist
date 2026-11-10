@@ -103,10 +103,15 @@ class HostTypist:
     :class:`HostUnavailable`.
     """
 
-    def __init__(self, addr, port, secret, timeout=2.5):
+    def __init__(self, addr, port, secret, timeout=2.5, window=""):
         self.addr = addr
         self.port = int(port)
         self.secret = secret
+        # Optional title substring: when set, the PC helper focuses the matching
+        # window before typing instead of using whatever window happens to be
+        # focused. That is what makes "type into a streamed PC window" land in
+        # the window the user is actually looking at.
+        self.window = window
         # Tight on purpose: a hung helper must not stall the gesture thread.
         self.timeout = timeout
         self._sock = None
@@ -148,6 +153,8 @@ class HostTypist:
             body = {"v": PROTOCOL_VERSION, "op": op, "seq": self._seq}
             if text is not None:
                 body["text"] = text
+            if self.window:
+                body["window"] = self.window
             self._seq += 1
             message = dict(body)
             message["hmac"] = sign(self.secret, body)

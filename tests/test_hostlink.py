@@ -125,6 +125,24 @@ def test_type_text_unicode_arrives_intact(fake_host):
     t.close()
 
 
+def test_window_hint_is_sent_and_signed(fake_host):
+    t = hostlink.HostTypist("127.0.0.1", fake_host.port, "RIGHT-SECRET",
+                            timeout=2.0, window="3Dprinting")
+    t.type_text("hi")
+    msg = fake_host.received[0]
+    assert msg["window"] == "3Dprinting"
+    # the hint is part of the signed body, so the helper can trust it
+    assert hostlink.verify("RIGHT-SECRET", msg)
+    t.close()
+
+
+def test_no_window_field_when_unset(fake_host):
+    t = hostlink.HostTypist("127.0.0.1", fake_host.port, "RIGHT-SECRET", timeout=2.0)
+    t.type_text("hi")
+    assert "window" not in fake_host.received[0]
+    t.close()
+
+
 def test_shortcut_maps_to_ops(fake_host):
     t = hostlink.HostTypist("127.0.0.1", fake_host.port, "RIGHT-SECRET", timeout=2.0)
     t.shortcut("enter")
