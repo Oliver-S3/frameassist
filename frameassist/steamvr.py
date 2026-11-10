@@ -168,6 +168,7 @@ class SteamVR:
         self.vr = None
         self.badge = None
         self.mic = None            # frameassist.window_mic.WindowMic (optional)
+        self._mic_kept_logged = False
         # Read-only controller buttons from SteamVR's own web-socket stream
         # (vrws.py). It reports grips/sticks in any context — including the
         # Frame's desktop/UI, where SteamVR Input won't route overlay-global
@@ -256,7 +257,12 @@ class SteamVR:
                 log.warning("window mics failed to start: %r", err)
                 self.mic = None
         elif on and self.mic is not None:
-            log.info("window mics kept (already running)")
+            # Called every hold pass / session start; log only on change so
+            # this can never flood (live flood 2026-11-09 19:10: 673 lines
+            # in 1000 from a 5 Hz hold loop).
+            if not self._mic_kept_logged:
+                log.info("window mics kept (already running)")
+                self._mic_kept_logged = True
         elif not on and self.mic is not None:
             try:
                 self.mic.destroy()
@@ -268,6 +274,7 @@ class SteamVR:
             except Exception:
                 pass
             self.mic = None
+            self._mic_kept_logged = False
 
     def open_bindings(self):
         if not self.connected:
@@ -313,14 +320,11 @@ class SteamVR:
             if self.hold:
                 if self.status != "held":
                     self._set_status("held", "Paused while the app's window has the shortcuts.")
-                # The window mic must keep tracking while the GUI is open:
-                # its overlays are placed every tick, and a paused loop would
-                # leave them frozen in space while the user moves windows.
-                # _sync_mic must also run here: the session teardown cleared
-                # self.mic when hold began, and no session starts while the
-                # GUI stays open - without this the mic stays dead for the
-                # whole hold (live deadlock 2026-11-09 18:59).
-                self._sync_mic()
+                # Hold no longer tears the session down. The mic's ctypes
+                # token lives UNDER this process's openvr session: tearing
+                # the session down while the mic api is alive SEGVs the
+                # runtime (live 2026-11-09 19:10 crash loop). Instead the
+                # session stays up and we simply skip the input work.
                 if self.mic is not None:
                     try:
                         self.mic.tick(self.clock())
@@ -344,7 +348,10 @@ class SteamVR:
             try:
                 self.open(openvr)
                 self._sync_mic()
-                while not self._stop and not self.hold and self.step():
+                # Hold no longer exits the session: keep stepping (the mic
+                # needs the 60 Hz loop and the event pump) and let step()
+                # itself skip the input work while held.
+                while not self._stop and self.step():
                     time.sleep(1 / 60)
             except Exception as err:
                 log.exception("steamvr session error")
@@ -494,7 +501,10 @@ class SteamVR:
 
     def step(self):
         """One frame: read the buttons we need, feed the gesture engine.
-        Returns False when SteamVR is quitting."""
+        Returns False when SteamVR is quitting.
+
+        While held (GUI window owns the shortcuts) the session stays up so
+        the mic keeps ticking under its token; the input work is skipped."""
         openvr = self.vr
         if not self._events(openvr):
             return False
@@ -507,6 +517,18 @@ class SteamVR:
         if now >= self._next_slow:
             self._slow_checks(openvr)
             self._next_slow = now + 1.0
+
+        if self.hold:
+            # Held: the GUI owns the buttons. Keep the event pump, the badge
+            # and the mic alive; skip everything input-related.
+            if self._badge_dirty and self.badge:
+                self._badge_dirty = False
+                self.badge.show(*self._badge)
+            if self.badge:
+                self.badge.tick()
+            if self.mic:
+                self.mic.tick(now)
+            return True
 
         # Leave the buttons to a game unless asked not to. With the Steam menu
         # open over a game, the buttons are ours again. Separately, the opt-in
