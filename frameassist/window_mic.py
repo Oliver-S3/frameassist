@@ -404,13 +404,16 @@ class OverlayApi:
         self._coords_fn = fns[FN["coords"]]
 
     def close(self):
-        if getattr(self, "_inited", False):
-            try:
-                shutdown = ctypes.CFUNCTYPE(None)(self.lib.VR_ShutdownInternal)
-                shutdown()
-            except Exception:
-                pass
-            self._inited = False
+        # Deliberately does NOT call VR_ShutdownInternal. libopenvr_api.so is
+        # a process-wide singleton, so the window mic's VR_InitInternal shares
+        # the runtime with the app's main SteamVR session; shutting this
+        # connection down tears the main session's interface pointers out from
+        # under it and the app SEGVs at once. Proven live: every "window mics
+        # disabled" (Settings Mic toggle / anchor change) crashed the app
+        # (coredumps 2026-11-10 14:42, 14:45, 15:30, 15:42, 16:20, 16:31).
+        # WindowMic.destroy() already removes the overlays; the runtime is
+        # released when the process exits.
+        self._inited = False
 
     # -- pythonic surface used by WindowMic --------------------------------
 
