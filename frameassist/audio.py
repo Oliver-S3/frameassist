@@ -13,6 +13,11 @@ import subprocess
 import tempfile
 
 
+# SIGKILL does not exist on Windows (tests import this module there); fall
+# back to SIGTERM so the escalation loop stays importable everywhere.
+_SIGKILL = getattr(signal, "SIGKILL", signal.SIGTERM)
+
+
 class Recorder:
     """Push-to-talk recorder. call start() to begin, stop() to finish."""
 
@@ -46,13 +51,58 @@ class Recorder:
         """Stop recording and return the path of the WAV file, or None."""
         if not self._proc:
             return None
-        self._proc.send_signal(signal.SIGINT)
+        proc, self._proc = self._proc, None
+        # SIGINT lets pw-record/arecord write the WAV header and exit; some
+        # PipeWire builds ignore it, so escalate to SIGTERM and finally SIGKILL
+        # (a recorder that outlives its take keeps the headset mic busy and
+        # made "Listening…" look stuck forever — live 2026-11-10).
+        for sig, wait_s in ((signal.SIGINT, 3), (signal.SIGTERM, 2),
+                            (_SIGKILL, 2)):
+            try:
+                proc.send_signal(sig)
+            except OSError:
+                break
+            try:
+                proc.wait(timeout=wait_s)
+                break
+            except subprocess.TimeoutExpired:
+                continue
         try:
-            self._proc.wait(timeout=3)
+            proc.wait(timeout=1)
         except subprocess.TimeoutExpired:
-            self._proc.kill()
-        self._proc = None
+            pass
         return self._path
+
+
+def kill_stale_recorders():
+    """Kill recorder processes left behind by a previous FrameAssist run.
+
+    A hard restart (or the app being killed) while a take was open used to
+    orphan ``pw-record``: it kept writing a temp WAV and held the headset mic
+    open, so the Frame showed "listening" forever and the next take could not
+    capture. Run this once at startup, before any recording starts.
+    """
+    me = os.getpid()
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        if pid == me:
+            continue
+        try:
+            with open(f"/proc/{pid}/cmdline", "rb") as f:
+                cmd = f.read().decode("utf-8", "replace")
+        except OSError:
+            continue
+        if ("pw-record" in cmd or "arecord" in cmd) and "frameassist-" in cmd:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except OSError:
+                pass
 
 
 def load_wav(path, rate=16000):

@@ -361,6 +361,13 @@ def _open_bindings(cfg):
 
 
 def main(argv=None):
+    # A previous run killed mid-take can leave pw-record holding the headset
+    # mic; clear those before this session starts recording.
+    try:
+        from .audio import kill_stale_recorders
+        kill_stale_recorders()
+    except Exception:
+        pass
     argv = argv if argv is not None else sys.argv[1:]
     parser = argparse.ArgumentParser(
         prog="frameassist",

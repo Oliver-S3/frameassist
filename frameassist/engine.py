@@ -21,6 +21,13 @@ from .voice import Transcriber
 READY = "ready"
 LISTENING = "listening"
 WORKING = "working"
+
+# Safety caps. A hold-to-talk take that never sees its release (dropped grip
+# event, a controller dropping out mid-hold) used to record forever: the
+# recorder kept the headset mic busy and "Listening…" never cleared. Hands-free
+# is allowed longer (its own gesture cap is 10 minutes).
+MAX_TALK_S = 120.0
+MAX_HANDSFREE_S = 600.0
 ERROR = "error"
 
 
@@ -47,6 +54,7 @@ class Engine:
         self._recorder = recorder or Recorder()
         self._lock = threading.Lock()
         self._working = False
+        self._talk_timer = None
         # Calibration session (calibrate.py): when active, flicks and talk
         # drive the chart instead of typing text.
         self.calibrate = None
@@ -77,10 +85,12 @@ class Engine:
             return
         with self._lock:
             if cmd in ("talk_start", "handsfree_start"):
+                log.info("engine: %s", cmd)
                 if cmd == "handsfree_start":
                     self.handsfree = True
                 self._start_talking()
             elif cmd in ("talk_stop", "handsfree_stop"):
+                log.info("engine: %s", cmd)
                 if cmd == "handsfree_stop":
                     self.handsfree = False
                 self._stop_talking()
@@ -122,6 +132,7 @@ class Engine:
 
     def cancel_talking(self):
         with self._lock:
+            self._cancel_cap()
             self.handsfree = False
             self._recorder.cancel()
             if self._working:
@@ -139,8 +150,32 @@ class Engine:
             self._set(ERROR, f"Couldn't start recording: {err}")
             return
         self._set(LISTENING, "Listening…")
+        self._arm_cap()
+
+    def _arm_cap(self):
+        """Force-stop a take that never gets its release (see MAX_TALK_S)."""
+        self._cancel_cap()
+        limit = MAX_HANDSFREE_S if self.handsfree else MAX_TALK_S
+        timer = threading.Timer(limit, self._cap_talking)
+        timer.daemon = True
+        self._talk_timer = timer
+        timer.start()
+
+    def _cancel_cap(self):
+        timer = self._talk_timer
+        self._talk_timer = None
+        if timer is not None:
+            timer.cancel()
+
+    def _cap_talking(self):
+        with self._lock:
+            if self.state == LISTENING:
+                log.warning("engine: talk cap reached (%.0fs); stopping",
+                            MAX_HANDSFREE_S if self.handsfree else MAX_TALK_S)
+                self._stop_talking()
 
     def _stop_talking(self):
+        self._cancel_cap()
         if self.state != LISTENING:
             return
         path = self._recorder.stop()

@@ -320,6 +320,11 @@ class Background:
         return GestureEngine(lambda cmd: self.engine.hotkey({"cmd": cmd}))
 
     def start(self):
+        try:
+            from .audio import kill_stale_recorders
+            kill_stale_recorders()
+        except Exception:
+            pass
         self.server.start()
         self.vr.start()
         threading.Thread(target=self._load, daemon=True).start()

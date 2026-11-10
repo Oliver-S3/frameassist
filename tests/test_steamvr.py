@@ -299,6 +299,27 @@ def _wait_until(predicate, timeout=3.0):
     raise AssertionError("timed out waiting for engine")
 
 
+def test_take_cap_stops_a_stuck_hold(tmp_path):
+    wav = tmp_path / "x.wav"
+    wav.write_bytes(b"RIFF")
+    rec = Recorder(wav)
+    typ = Typist()
+    tr = FakeTranscriber()
+    cfg = {"model": "base.en", "add_space": True, "press_enter": False,
+           "after_talking": "type", "ai_polish": False, "ai_key": ""}
+    states = []
+    e = Engine(cfg, on_state=lambda s, m: states.append((s, m)),
+               transcriber=tr, typist=typ, recorder=rec,
+               copy_clipboard=lambda t: None)
+    e.load()
+    e.hotkey({"cmd": "talk_start"})
+    assert e.state == "listening"
+    # Simulate the release event being lost: the cap must force a stop.
+    e._cap_talking()
+    _wait_until(lambda: rec.stopped == 1 and e.state != "listening")
+    assert rec.started == 1
+
+
 def test_engine_talk_flow(tmp_path):
     wav = tmp_path / "x.wav"
     wav.write_bytes(b"RIFF")

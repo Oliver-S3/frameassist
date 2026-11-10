@@ -1,63 +1,56 @@
-"""Tests for the audio helpers that don't need a mic or Whisper model."""
+"""Tests for the recorder: stop escalation and stray-process cleanup."""
 
-import wave
+import io
+import signal
+import subprocess
 
-import numpy as np
-import pytest
-
-from frameassist.audio import boost_quiet, keep
-
-
-def _write_wav(path, samples, rate=16000, channels=1):
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(rate)
-        w.writeframes((samples * 32767).astype("<i2").tobytes())
+from frameassist import audio
 
 
-def test_boost_quiet_leaves_loud_alone():
-    loud = np.full(1600, 0.7, dtype=np.float32)
-    assert np.array_equal(boost_quiet(loud), loud)
+class _StubbornProc:
+    """A recorder that ignores every signal we send (wait always times out)."""
+
+    def __init__(self):
+        self.signals = []
+
+    def send_signal(self, sig):
+        self.signals.append(sig)
+
+    def wait(self, timeout=None):
+        raise subprocess.TimeoutExpired("pw-record", timeout or 0)
 
 
-def test_boost_quiet_turns_up_quiet():
-    quiet = np.full(1600, 0.05, dtype=np.float32)
-    boosted = boost_quiet(quiet)
-    assert abs(boosted).max() > 0.1
+def test_stop_escalates_all_the_way_to_sigkill():
+    rec = audio.Recorder()
+    proc = _StubbornProc()
+    rec._proc = proc
+    rec._path = "/tmp/frameassist-test.wav"
+    assert rec.stop() == "/tmp/frameassist-test.wav"
+    assert rec._proc is None
+    assert proc.signals == [signal.SIGINT, signal.SIGTERM, audio._SIGKILL]
 
 
-def test_boost_quiet_outputs_float32():
-    quiet = np.full(1600, 0.05, dtype=np.float32)
-    assert boost_quiet(quiet).dtype == np.float32
+def test_stop_returns_none_when_not_recording():
+    rec = audio.Recorder()
+    assert rec.stop() is None
 
 
-def test_keep_phantom_is_dropped():
-    class Seg:
-        no_speech_prob = 0.9
-        avg_logprob = -2.0
-        text = "Thank you for watching"
+def test_kill_stale_recorders_only_touches_our_own_recorders(monkeypatch):
+    killed = []
+    ours = str(audio.os.getpid())
+    monkeypatch.setattr(audio.os, "listdir", lambda _p: ["101", "102", "103", ours])
+    real_open = open
 
-    assert keep(Seg()) is False
+    def fake_open(path, mode="r", *args, **kwargs):
+        if path == "/proc/101/cmdline":
+            return io.BytesIO(b"pw-record\x00--rate\x0016000\x00/tmp/frameassist-abc.wav\x00")
+        if path == "/proc/102/cmdline":
+            return io.BytesIO(b"bash\x00")
+        if path == "/proc/103/cmdline":
+            return io.BytesIO(b"pw-record\x00/tmp/other-app.wav\x00")
+        return real_open(path, mode, *args, **kwargs)
 
-
-def test_keep_speech_is_kept():
-    class Seg:
-        no_speech_prob = 0.1
-        avg_logprob = -0.2
-        text = "Buy the headphones"
-
-    assert keep(Seg()) is True
-
-
-def test_wav_stereo_is_mixed_to_mono(tmp_path):
-    path = tmp_path / "s.wav"
-    left = np.linspace(-1, 1, 8000, dtype=np.float32)
-    right = np.zeros(8000, dtype=np.float32)
-    stereo = np.stack([left, right], axis=1)
-    _write_wav(path, stereo, channels=2)
-    from frameassist.audio import load_wav
-    mono = load_wav(str(path))
-    assert mono.ndim == 1
-    assert len(mono) == 8000
-    assert mono.max() > 0.3
+    monkeypatch.setattr("builtins.open", fake_open)
+    monkeypatch.setattr(audio.os, "kill", lambda pid, sig: killed.append((pid, sig)))
+    audio.kill_stale_recorders()
+    assert killed == [(101, signal.SIGTERM)]
