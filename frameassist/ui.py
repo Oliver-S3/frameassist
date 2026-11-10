@@ -577,10 +577,16 @@ class MainWindow(QMainWindow):
         # Re-read the file first: another FrameAssist copy (or a hand edit) may
         # have changed Settings since this window loaded, and a stale dialog
         # silently rewrote the Mic position on Save (live 2026-11-10).
+        # Update the dict IN PLACE: the Engine holds the same object, so
+        # replacing it silently stranded live settings such as delivery (the
+        # user had to restart the app to switch streamed/local typing).
         try:
-            self.cfg = load()
+            fresh = load()
         except Exception:
-            pass
+            fresh = None
+        if fresh is not None:
+            self.cfg.clear()
+            self.cfg.update(fresh)
         dialog = SettingsDialog(self.cfg, self)
         if dialog.exec():
             values = dialog.values()

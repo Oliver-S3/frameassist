@@ -67,6 +67,43 @@ def test_open_settings_reloads_the_file_first(app, monkeypatch):
     window = MainWindow(cfg, Engine(cfg), on_settings=lambda c: None)
     window._open_settings()
     assert seen["anchor"] == "bar"
+    # Updated in place: the Engine holds this same dict, so live settings
+    # (delivery, host window, ...) still reach it.
+    assert window.cfg is cfg
+    assert cfg["window_mic_anchor"] == "bar"
+    window.close()
+
+
+def test_open_settings_updates_the_engine_config_in_place(app, monkeypatch):
+    """Replacing the dict on reload stranded live settings like delivery (the
+    user had to restart the app to switch streamed/local typing)."""
+    import frameassist.ui as ui
+    from frameassist.config import DEFAULTS
+    from frameassist.engine import Engine
+
+    class AcceptingDialog:
+        def __init__(self, cfg, parent=None):
+            self.cfg = cfg
+
+        def exec(self):
+            return 1
+
+        def values(self):
+            return {"delivery": "frame", "window_mic_anchor": "hud"}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ui, "load", lambda: dict(DEFAULTS, delivery="host"))
+    monkeypatch.setattr(ui, "SettingsDialog", AcceptingDialog)
+    monkeypatch.setattr(ui, "save", lambda cfg, path=None: None)
+    cfg = dict(DEFAULTS, delivery="host", window_mic_anchor="bar")
+    engine = Engine(cfg)
+    window = MainWindow(cfg, engine, on_settings=lambda c: None)
+    window._open_settings()
+    assert engine.cfg is cfg
+    assert engine.cfg["delivery"] == "frame"
+    assert cfg["window_mic_anchor"] == "hud"
     window.close()
 
 
