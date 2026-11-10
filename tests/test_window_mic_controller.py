@@ -653,6 +653,31 @@ def test_bar_mic_waits_for_a_window():
     assert mic._mics == {}
 
 
+def test_bar_mic_sticks_to_its_window_when_transients_appear():
+    """Transient dashboard windows (the Settings dialog, popups) must not drag
+    the mic off the bar (live 2026-11-10 18:46: anchor bounced 129->131->129
+    ->132->129 in 15 s)."""
+    api = FakeApi()
+    api.add_window(49)
+    api.add_window(57)
+    clock = Clock()
+    mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
+                       anchor="bar")
+    mic.tick(clock())
+    bar_mic = mic._mics[wm.BAR_SEQ]
+    assert bar_mic.win_handle == api.windows[57]["handle"]
+
+    api.add_window(61)  # a dialog/popup appears as the newest seq
+    clock.advance(wm.SCAN_S + 0.1)
+    mic.tick(clock())
+    assert bar_mic.win_handle == api.windows[57]["handle"]  # still sticky
+
+    del api.windows[57]  # the desktop window closes: follow the surviving one
+    clock.advance(wm.SCAN_S + 0.1)
+    mic.tick(clock())
+    assert bar_mic.win_handle == api.windows[61]["handle"]
+
+
 def test_bar_mic_uses_the_newest_window_and_hides_when_it_closes():
     api = FakeApi()
     api.add_window(49, ll=(-2.0, 0.8, -2.0))

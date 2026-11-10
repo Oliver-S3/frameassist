@@ -685,7 +685,13 @@ class WindowMic:
                 self.api.hide(mic.handle)
                 mic.hidden = True
             return
-        seq = bar_window(self.api, windows)
+        # Sticky: keep the window the bar is already anchored to while it
+        # exists. Transient dashboard windows (the Settings dialog, popups)
+        # come and go; letting each newest one steal the anchor parked the mic
+        # on the dialog and dragged it around (live 2026-11-10 18:46:
+        # 129 -> 131 -> 129 -> 132 -> 129 within 15 s).
+        seq = (self._bar_seq if self._bar_seq in windows
+               else bar_window(self.api, windows))
         if seq is None:
             if mic is not None and not mic.hidden:
                 self.api.hide(mic.handle)
