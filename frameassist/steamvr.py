@@ -304,17 +304,25 @@ class SteamVR:
                 self._stop_mic()
 
     def _stop_mic(self):
-        try:
-            self.mic.destroy()
-            log.info("window mics disabled")
-        except Exception as err:
-            log.warning("window mics failed to stop: %r", err)
-        try:
-            self.mic.api.close()
-        except Exception:
-            pass
-        self.mic = None
-        self._mic_kept_logged = False
+        # The VR thread ticks the mic under _mic_lock; destroying it from the
+        # Settings thread without the lock raced that tick and SEGV'd the app
+        # (live 2026-11-10 16:20:19: changed the Mic-button anchor, app dumped
+        # core right after "window mics disabled"). _mic_lock is an RLock, so
+        # the locked call from _sync_mic is fine.
+        with self._mic_lock:
+            mic, self.mic = self.mic, None
+            self._mic_kept_logged = False
+            if mic is None:
+                return
+            try:
+                mic.destroy()
+                log.info("window mics disabled")
+            except Exception as err:
+                log.warning("window mics failed to stop: %r", err)
+            try:
+                mic.api.close()
+            except Exception:
+                pass
 
     def _tick_mic(self, now):
         """Tick the mic under the lock, so a concurrent Settings toggle can't

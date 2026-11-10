@@ -1,5 +1,8 @@
 """Tests for the window-mic wiring: SteamVR sync, service plumbing, UI toggle."""
 
+import threading
+import time
+
 import pytest
 
 from frameassist import steamvr as svr_mod
@@ -217,6 +220,56 @@ class AnchorRecordingMic(RecordingMic):
         super().__init__(api, app_key, on_command, **kwargs)
         self.hud = hud
         self.anchor = anchor
+
+
+def test_changing_anchor_rebuilds_the_mic(vr, monkeypatch):
+    """The crash path: Settings changed the Mic-button anchor, _stop_mic ran
+    unlocked against the VR tick and SEGV'd (live 2026-11-10 16:20:19)."""
+    svr = SteamVR(clock=Clock(), window_mic=True, window_mic_anchor="bar")
+    svr.vr = vr
+    import frameassist.window_mic as wm
+    monkeypatch.setattr(wm, "unavailable_reason", lambda: None)
+    monkeypatch.setattr(wm, "OverlayApi", lambda: object())
+    monkeypatch.setattr(wm, "WindowMic", AnchorRecordingMic)
+    svr._sync_mic()
+    old = svr.mic
+    assert old.anchor == "bar"
+    svr.set_options(window_mic_anchor="window")
+    assert old.destroyed
+    assert svr.mic is not old
+    assert svr.mic.anchor == "window"
+
+
+class BlockingMic(RecordingMic):
+    def __init__(self, api=None, app_key=None, on_command=None, **kwargs):
+        super().__init__(api, app_key, on_command, **kwargs)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def tick(self, now):
+        self.entered.set()
+        self.release.wait(1.0)
+
+    def destroy(self):
+        self.destroyed = True
+
+
+def test_stop_mic_waits_for_a_live_tick(vr):
+    clock = Clock()
+    svr = SteamVR(clock=clock, window_mic=True)
+    mic = BlockingMic()
+    svr.mic = mic
+    ticker = threading.Thread(target=svr._tick_mic, args=(0.0,))
+    ticker.start()
+    assert mic.entered.wait(1.0)
+    stopper = threading.Thread(target=svr._stop_mic)
+    stopper.start()
+    time.sleep(0.1)
+    assert not mic.destroyed, "destroy ran while the VR tick was live"
+    mic.release.set()
+    ticker.join(2.0)
+    stopper.join(2.0)
+    assert mic.destroyed and svr.mic is None
 
 
 def test_bar_anchor_is_passed_to_the_controller(vr, monkeypatch):
