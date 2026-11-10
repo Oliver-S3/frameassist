@@ -39,6 +39,37 @@ def test_main_window_never_takes_keyboard_focus(app):
     window.close()
 
 
+def test_open_settings_reloads_the_file_first(app, monkeypatch):
+    """Saving a stale dialog used to overwrite a newer Mic position (live
+    2026-11-10: window saved over bar after another copy changed it)."""
+    import frameassist.ui as ui
+    from frameassist.config import DEFAULTS
+    from frameassist.engine import Engine
+    seen = {}
+
+    class FakeDialog:
+        def __init__(self, cfg, parent=None):
+            seen["anchor"] = cfg.get("window_mic_anchor")
+
+        def exec(self):
+            return 0  # cancel, so nothing is saved
+
+        def values(self):
+            return {}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ui, "load",
+                        lambda: dict(DEFAULTS, window_mic_anchor="bar"))
+    monkeypatch.setattr(ui, "SettingsDialog", FakeDialog)
+    cfg = dict(DEFAULTS, window_mic_anchor="window")
+    window = MainWindow(cfg, Engine(cfg), on_settings=lambda c: None)
+    window._open_settings()
+    assert seen["anchor"] == "bar"
+    window.close()
+
+
 def test_calibrate_dialog_has_fov_button_and_instructions(app):
     import types
     engine = types.SimpleNamespace(calibrate=None)

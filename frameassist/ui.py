@@ -574,6 +574,13 @@ class MainWindow(QMainWindow):
         guide.exec()
 
     def _open_settings(self):
+        # Re-read the file first: another FrameAssist copy (or a hand edit) may
+        # have changed Settings since this window loaded, and a stale dialog
+        # silently rewrote the Mic position on Save (live 2026-11-10).
+        try:
+            self.cfg = load()
+        except Exception:
+            pass
         dialog = SettingsDialog(self.cfg, self)
         if dialog.exec():
             values = dialog.values()
