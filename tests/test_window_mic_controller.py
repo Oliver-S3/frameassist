@@ -370,6 +370,26 @@ def test_position_survives_a_missing_window_scale():
     assert mic._mics[49].handle in api.absolutes
 
 
+def test_unplaceable_mic_hides_and_returns():
+    """A mic that cannot be placed must not stay visible at its old pose:
+    that stale plate reads as a duplicate mic on the window."""
+    api = FakeApi()
+    api.add_window(49)
+    mic, clock = make_mic(api)
+    mic.tick(clock())
+    handle = mic._mics[49].handle
+    assert handle in api.shown
+    api.fail_coords = True
+    mic.tick(clock())                     # first failure: start the grace
+    clock.advance(wm.HIDE_AFTER_S + 0.01)
+    mic.tick(clock())                     # grace elapsed: hide
+    assert handle not in api.shown
+    api.fail_coords = False
+    clock.advance(0.016)
+    mic.tick(clock())                     # placeable again: show
+    assert handle in api.shown
+
+
 # --------------------------------------------------------------------------
 # Events / state machine
 # --------------------------------------------------------------------------

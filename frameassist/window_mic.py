@@ -85,6 +85,7 @@ REBUILD_AFTER_S = 60.0
 HEARTBEAT_S = 60.0  # alive-log cadence so silence is never ambiguous again
 PULSE_S = 0.25      # one recording-ring animation phase
 HOVER_TTL = 0.5     # a mouse-move keeps a mic highlighted this long
+HIDE_AFTER_S = 1.0  # hide a mic that has been unplaceable this long
 MAX_TAKE_S = 300.0  # safety cap: force-stop a take left open this long
 ALPHA = 0.9
 SORT_ORDER = 80
@@ -394,7 +395,10 @@ class OverlayApi:
         raise RuntimeError(f"createOverlay({key!r}) rc={rc}")
 
     def destroy(self, handle):
-        self._destroy(ctypes.c_uint64(handle))
+        rc = self._destroy(ctypes.c_uint64(handle))
+        # Fakes return None; the real FFI returns an int rc.
+        if rc not in (0, None):
+            raise RuntimeError(f"destroyOverlay rc={rc}")
 
     def _check(self, what, rc):
         if rc != 0:
@@ -491,7 +495,7 @@ class _Mat(ctypes.Structure):
 
 class _Mic:
     __slots__ = ("seq", "key", "handle", "win_handle", "face", "last_move",
-                 "pose")
+                 "pose", "hidden")
 
     def __init__(self, seq, key, handle, win_handle):
         self.seq = seq
@@ -501,6 +505,7 @@ class _Mic:
         self.face = None        # last (kind, hover, phase) painted
         self.last_move = 0.0
         self.pose = None        # last eased centre (3-tuple)
+        self.hidden = False     # hidden because the window is unplaceable
 
 
 class WindowMic:
@@ -527,6 +532,7 @@ class WindowMic:
         self._last_scan = 0.0
         self._seen_logged = None   # last window set we logged
         self._pos_warned = {}      # seq -> exception type already warned
+        self._probe_fail_since = {}  # seq -> first failed probe time
         self._take_seq = None
         self._take_since = 0.0
         self._pressed_at = None
@@ -667,8 +673,12 @@ class WindowMic:
             return
         try:
             self.api.destroy(mic.handle)
-        except Exception:
-            pass
+        except Exception as err:
+            # A failed destroy leaves the plate in the scene forever: it is
+            # what a stale "duplicate" mic looks like. Make it loud.
+            log.warning("floating mics: could not destroy the mic for "
+                        "window.%s: %s", seq, err)
+        self._probe_fail_since.pop(seq, None)
         if seq == self._take_seq:
             self._stop_take()
 
@@ -698,7 +708,7 @@ class WindowMic:
                     raise RuntimeError("coordinate probe returned nothing")
                 quad = quad_from_probe(ll, lr, ul)
                 if quad is None:
-                    continue
+                    raise RuntimeError("quad too small to place a mic")
                 width, height, right_u, up_u, facing = quad
                 # coords() returns a 12-float matrix; the translation lives
                 # at m[3], m[7], m[11]. Indexing m[0..2] reads the rotation
@@ -717,8 +727,24 @@ class WindowMic:
                 self.api.set_absolute(
                     mic.handle, STANDING,
                     absolute_matrix(mic.pose, right_u, up_u, facing))
+                self._probe_fail_since.pop(mic.seq, None)
+                if mic.hidden:
+                    self.api.show(mic.handle)
+                    mic.hidden = False
             except Exception as err:
                 self._warn_position_once(mic, err)
+                # The window moved/closed or the runtime briefly refuses the
+                # probe. A plate left visible at the old pose reads as a
+                # duplicate mic, so hide it once it has been unplaceable for a
+                # moment (a transient one-frame failure must not flicker).
+                since = self._probe_fail_since.setdefault(mic.seq, now)
+                if not mic.hidden and now - since >= HIDE_AFTER_S:
+                    try:
+                        self.api.hide(mic.handle)
+                        mic.hidden = True
+                    except Exception as hide_err:
+                        log.warning("floating mics: could not hide the mic "
+                                    "for window.%s: %s", mic.seq, hide_err)
 
     # -- input events ------------------------------------------------------
 
