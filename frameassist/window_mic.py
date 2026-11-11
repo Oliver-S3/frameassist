@@ -164,6 +164,7 @@ FN = {
     "set_sort": 20,
     "set_width": 22,
     "get_width": 23,
+    "get_absolute": 34,
     "get_transform_type": 32,
     "set_absolute": 33,
     "show": 43,
@@ -312,7 +313,7 @@ def bar_window(api, windows):
     return max(windows) if windows else None
 
 
-def dock_from_corners(ll, lr, ul):
+def dock_from_corners(ll, lr, ul, extra=0.0):
     """(target, right_u, up_u, facing) for the plate right of the Steam bar.
 
     ``ll``, ``lr`` and ``ul`` are world-space corner positions probed from the
@@ -338,7 +339,7 @@ def dock_from_corners(ll, lr, ul):
               right[0] * up[1] - right[1] * up[0])
     height = math.sqrt(sum((ul[i] - ll[i]) ** 2 for i in range(3)))
     target = tuple(lr[i] + up[i] * (height / 2)
-                   + right[i] * (DOCK_GAP + PLATE_METERS / 2)
+                   + right[i] * (DOCK_GAP + PLATE_METERS / 2 + extra)
                    + facing[i] * DOCK_FRONT for i in range(3))
     return target, right, up, facing
 
@@ -450,6 +451,9 @@ class OverlayApi:
                              ctypes.c_uint32, ctypes.c_uint32, ctypes.c_uint32)
         self._get_tt = bind(FN["get_transform_type"], i32, u64,
                             ctypes.POINTER(i32))
+        self._get_width = bind(FN["get_width"], i32, u64, ctypes.POINTER(f32))
+        self._get_absolute = bind(FN["get_absolute"], i32, u64,
+                                  ctypes.POINTER(i32), ctypes.POINTER(_Mat))
 
         self.glue = ctypes.CDLL(str(shim_path or SHIM))
         self.glue.frameassist_overlay_point.argtypes = [
@@ -521,6 +525,21 @@ class OverlayApi:
         v = _Vec2(float(w), float(h))
         self._check("setOverlayMouseScale",
                     self._set_mscale(ctypes.c_uint64(handle), ctypes.byref(v)))
+
+    def get_width(self, handle):
+        w = ctypes.c_float(0.0)
+        if self._get_width(ctypes.c_uint64(handle), ctypes.byref(w)) == 0:
+            return w.value
+        return 0.0
+
+    def get_absolute(self, handle):
+        """The overlay's absolute transform as 12 row-major floats, or None."""
+        origin = ctypes.c_int(0)
+        m = _Mat()
+        if self._get_absolute(ctypes.c_uint64(handle),
+                              ctypes.byref(origin), ctypes.byref(m)) == 0:
+            return list(m.m)
+        return None
 
     def get_transform_type(self, handle):
         """The overlay's VRTransformType (0 = Absolute), or None."""
@@ -617,7 +636,8 @@ class WindowMic:
 
     def __init__(self, api, app_key, on_command=None, can_act=None,
                  engine_state=None, clock=time.monotonic, enabled=True,
-                 api_factory=None, hud=None, anchor="window"):
+                 api_factory=None, hud=None, anchor="window",
+                 dock_extra=0.0):
         self.api = api
         # ``anchor`` picks where the one optional button lives: "hud" (head
         # relative; ``hud(handle)`` sets the transform), "bar" (beside the
@@ -625,6 +645,7 @@ class WindowMic:
         # on each floating window).
         self.anchor = anchor
         self.hud = hud
+        self.dock_extra = float(dock_extra)
         self.app_key = app_key
         self.on_command = on_command or (lambda cmd, seq: None)
         self.can_act = can_act or (lambda: True)
@@ -643,6 +664,7 @@ class WindowMic:
         self._last_tick = None
         self._bar_seq = None       # window the bar mic is anchored to
         self._dock_logged = False
+        self.dock_extra = float(dock_extra)  # metres further right
         self.settings_open = False # freeze the anchor while Settings is open
         self._frozen_logged = False
         self._empty_since = None   # first scan of the current zero-window run
@@ -787,7 +809,8 @@ class WindowMic:
         pose = dock_from_corners(
             None if ll is None else (ll[3], ll[7], ll[11]),
             None if lr is None else (lr[3], lr[7], lr[11]),
-            None if ul is None else (ul[3], ul[7], ul[11]))
+            None if ul is None else (ul[3], ul[7], ul[11]),
+            self.dock_extra)
         if pose is None:
             return None
         return absolute_matrix(*pose)

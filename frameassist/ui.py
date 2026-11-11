@@ -11,7 +11,7 @@ import sys
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QPainter, QPen
 from PySide6.QtWidgets import (
-    QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFormLayout,
+    QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
     QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu,
     QPushButton, QScrollArea, QVBoxLayout, QWidget,
 )
@@ -258,6 +258,18 @@ class SettingsDialog(QDialog):
             "(gamescope) floating windows.")
         form.addRow("Mic position", self.window_mic_anchor)
 
+        self.dock_extra = QDoubleSpinBox()
+        self.dock_extra.setRange(0.0, 30.0)
+        self.dock_extra.setSingleStep(0.5)
+        self.dock_extra.setDecimals(1)
+        self.dock_extra.setValue(
+            float(cfg.get("window_mic_dock_extra", 0.0)) * 100.0)
+        self.dock_extra.setToolTip(
+            "Extra centimetres to the right of the dock's corner. Bump it when "
+            "the dock grows with more pinned apps; the mic still follows the "
+            "dock itself.")
+        form.addRow("Dock mic nudge (cm)", self.dock_extra)
+
         self.grips_with_mic = QCheckBox(
             "Also use the grip gestures while the mic button is showing")
         self.grips_with_mic.setChecked(cfg.get("grips_with_mic", True))
@@ -390,6 +402,7 @@ class SettingsDialog(QDialog):
             "autostart": self.autostart.isChecked(),
             "window_mic": self.window_mic.isChecked(),
             "window_mic_anchor": self.window_mic_anchor.currentData(),
+            "window_mic_dock_extra": self.dock_extra.value() / 100.0,
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),
             "ai_base_url": self.ai_base_url.text().strip(),

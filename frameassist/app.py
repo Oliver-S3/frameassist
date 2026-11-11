@@ -160,7 +160,8 @@ def run_window(cfg):
             vr.set_options(
                 window_mic=bool(new_cfg.get("window_mic", False)),
                 window_mic_anchor=new_cfg.get("window_mic_anchor", "bar"),
-                grips_with_mic=bool(new_cfg.get("grips_with_mic", True)))
+                grips_with_mic=bool(new_cfg.get("grips_with_mic", True)),
+                dock_extra=float(new_cfg.get("window_mic_dock_extra", 0.0)))
         # Keep the Settings checkbox and the systemd autostart unit in sync:
         # toggling "Start automatically with SteamVR" here also enables or
         # disables the unit, matching the App-menu Turn off/Turn on behavior.

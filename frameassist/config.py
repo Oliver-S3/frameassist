@@ -53,6 +53,7 @@ DEFAULTS = {
     # need the native overlay_point.so helper that install.sh builds.
     "window_mic": False,
     "window_mic_anchor": "bar",
+    "window_mic_dock_extra": 0.0,   # metres further right of the dock's corner
     # When the mic button is on, should the grip gestures stay live too?
     # True = both activation methods work at once; False = the grips are paused
     # while the mic button is showing (mic-only users).

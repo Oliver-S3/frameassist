@@ -149,7 +149,8 @@ class SteamVR:
     def __init__(self, on_status=lambda text: None,
                  in_games=False, rest_while_streaming=False,
                  autolaunch=True, clock=None, window_mic=False,
-                 window_mic_anchor="bar", grips_with_mic=True):
+                 window_mic_anchor="bar", grips_with_mic=True,
+                 dock_extra=0.0):
         self.on_status = on_status
         self.in_games = in_games
         self.rest_while_streaming = rest_while_streaming
@@ -160,6 +161,7 @@ class SteamVR:
         # window (fixed in the room with it); "hud": head relative; "window":
         # one mic per floating gamescope window.
         self.window_mic_anchor = window_mic_anchor or "bar"
+        self.dock_extra = float(dock_extra or 0.0)
         # Whether hold-both-grips keeps working while the mic button is on.
         self.grips_with_mic = bool(grips_with_mic)
         self.connected = False
@@ -216,7 +218,7 @@ class SteamVR:
 
     def set_options(self, in_games=None, rest_while_streaming=None,
                     window_mic=None, window_mic_anchor=None,
-                    grips_with_mic=None):
+                    grips_with_mic=None, dock_extra=None):
         if in_games is not None:
             self.in_games = in_games
         if rest_while_streaming is not None:
@@ -231,6 +233,10 @@ class SteamVR:
             self._sync_mic()
         if grips_with_mic is not None:
             self.grips_with_mic = bool(grips_with_mic)
+        if dock_extra is not None:
+            self.dock_extra = float(dock_extra)
+            if self.mic is not None:
+                self.mic.dock_extra = self.dock_extra
 
     def set_settings_open(self, on):
         """Freeze the bar mic's anchor while the Settings dialog is open."""
@@ -294,7 +300,8 @@ class SteamVR:
                         engine_state=lambda: self.engine_state,
                         enabled=True,
                         hud=hud,
-                        anchor=self.window_mic_anchor)
+                        anchor=self.window_mic_anchor,
+                        dock_extra=self.dock_extra)
                     log.info("window mics enabled (%s)", self.window_mic_anchor)
                 except Exception as err:
                     log.warning("window mics failed to start: %r", err)

@@ -632,6 +632,12 @@ def test_dock_pose_lands_right_of_the_bar():
         (1.0 + wm.DOCK_GAP + wm.PLATE_METERS / 2, 0.05, wm.DOCK_FRONT), abs=1e-9)
 
 
+def test_dock_extra_moves_the_plate_further_right():
+    base = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.1, 0.0))
+    more = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.1, 0.0), 0.02)
+    assert more[0] == pytest.approx((base[0][0] + 0.02, base[0][1], base[0][2]))
+
+
 def test_dock_plate_stays_upright_even_when_the_bar_is_tilted():
     # The bar's own axes are tilted on the Frame; the plate must stay upright
     # or it rides on top of the bar instead of beside it.
