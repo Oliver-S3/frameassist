@@ -136,7 +136,7 @@ BAR_SEQ = 0
 DOCK_KEY = "valve.steam.gamepadui.bar"
 DOCK_GAP = 0.10     # plate centre beyond the bar's right corner
 DOCK_FRONT = 0.04   # toward the bar's facing (in front of the dock)
-DOCK_DROP = 0.0254  # one inch below the bar: out of reach of a growing dock
+DOCK_DROP = 0.0508  # two inches below the bar: clear of a growing dock
 # Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
 # newest-seq window). Only landscape windows are candidates for the bar anchor;
 # portrait windows (a phone-shaped app, the Settings dialog) are skipped.
