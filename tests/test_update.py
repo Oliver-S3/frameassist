@@ -195,3 +195,18 @@ def _json_resp(text):
             return json.dumps({"version": text}).encode()
 
     return R()
+
+
+# -- baked update source (install.sh writes it into the venv) ------------------
+
+def test_baked_source_reads_install_sh_file(monkeypatch, tmp_path):
+    baked = tmp_path / "frameassist.update"
+    baked.write_text(json.dumps({"base": "https://github.com/me/frameassist",
+                                 "branch": "dev"}), encoding="utf-8")
+    monkeypatch.setattr(update, "UPDATE_FILE", baked)
+    assert update._baked_source() == ("https://github.com/me/frameassist", "dev")
+
+
+def test_baked_source_missing_file_is_empty(monkeypatch, tmp_path):
+    monkeypatch.setattr(update, "UPDATE_FILE", tmp_path / "missing")
+    assert update._baked_source() == ("", "main")

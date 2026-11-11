@@ -32,12 +32,34 @@ from pathlib import Path
 from . import __version__
 from .log import log
 
+# The update source is normally baked into the launcher/service environment,
+# but a copy started from a plain shell would have no env at all (the headset's
+# "Check for updates" then reported "No update source configured"). install.sh
+# also writes this file inside the venv, and it is the fallback here.
+UPDATE_FILE = Path(sys.prefix) / "frameassist.update"
+
+
+def _baked_source():
+    """(base, branch) written by install.sh, or ("", "main") when absent."""
+    try:
+        data = json.loads(UPDATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return "", "main"
+    base = str(data.get("base") or "").strip()
+    branch = str(data.get("branch") or "main").strip() or "main"
+    return base, branch
+
+
+_BAKED_BASE, _BAKED_BRANCH = _baked_source()
+
 DEFAULT_URL = os.environ.get("FRAMEASSIST_UPDATE_URL", "")
 # Preferred: a repo to update from, e.g. "http://gitea-host/user/frameassist".
 # The check endpoint is <base>/raw/<branch>/version.json and the upgrade
 # installs <base>/archive/<branch>.tar.gz.
-DEFAULT_BASE = os.environ.get("FRAMEASSIST_UPDATE_BASE", "")
-DEFAULT_BRANCH = os.environ.get("FRAMEASSIST_UPDATE_BRANCH", "main")
+DEFAULT_BASE = (os.environ.get("FRAMEASSIST_UPDATE_BASE", "").strip()
+                or _BAKED_BASE)
+DEFAULT_BRANCH = (os.environ.get("FRAMEASSIST_UPDATE_BRANCH", "").strip()
+                  or _BAKED_BRANCH)
 VERSION_FILE = Path(sys.prefix) / "lib" / "python" / "frameassist.version"
 
 

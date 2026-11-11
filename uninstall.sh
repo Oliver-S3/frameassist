@@ -30,6 +30,16 @@ else
   systemctl --user disable --now frameassist.service 2>/dev/null || true
 fi
 
+# Remove the unit too, not just disable it: a leftover unit points at a
+# deleted binary (reported as a broken uninstall, 2026-11-11).
+rm -f "${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user/frameassist.service"
+if [[ -S "/run/user/$(id -u)/bus" ]]; then
+  XDG_RUNTIME_DIR="/run/user/$(id -u)" DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus" \
+    systemctl --user daemon-reload 2>/dev/null || true
+else
+  systemctl --user daemon-reload 2>/dev/null || true
+fi
+
 # Files we added.
 rm -f "$BIN"
 rm -f "${XDG_DATA_HOME:-$HOME/.local/share}/applications/frameassist.desktop"

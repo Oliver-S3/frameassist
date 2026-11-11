@@ -12,7 +12,7 @@ BRANCH="${FRAMEASSIST_BRANCH:-main}"
 # app then checks <base>/raw/<branch>/version.json and installs the source
 # archive <base>/archive/<branch>.tar.gz. The values are baked into the desktop
 # launcher and the SteamVR service below.
-FRAMEASSIST_UPDATE_BASE="${FRAMEASSIST_UPDATE_BASE:-}"
+FRAMEASSIST_UPDATE_BASE="${FRAMEASSIST_UPDATE_BASE:-https://github.com/$REPO}"
 FRAMEASSIST_UPDATE_BRANCH="${FRAMEASSIST_UPDATE_BRANCH:-main}"
 export FRAMEASSIST_UPDATE_BASE FRAMEASSIST_UPDATE_BRANCH
 # Valve's official Linux ARM64 OpenVR library (pinned to a known commit).
@@ -68,6 +68,11 @@ fi
   || fail "the Python environment has no pip; delete $VENV and rerun."
 "$VENV/bin/python" -m pip install --quiet --upgrade pip
 "$VENV/bin/python" -m pip install --quiet --upgrade "$SRC" || fail "package install failed (see above)."
+# Bake the update source inside the venv too, so "Check for updates" works even
+# when the app is started without the launcher's environment (a plain shell).
+printf '{"base": "%s", "branch": "%s"}\n' \
+  "$FRAMEASSIST_UPDATE_BASE" "${FRAMEASSIST_UPDATE_BRANCH:-main}" \
+  > "$VENV/frameassist.update"
 ok "App installed"
 
 if [[ "$(uname -m)" == "aarch64" ]]; then
