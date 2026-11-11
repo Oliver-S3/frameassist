@@ -77,7 +77,8 @@ ok "App installed"
 
 if [[ "$(uname -m)" == "aarch64" ]]; then
   # The Python SteamVR package only ships x86 libraries; use Valve's ARM build.
-  OVR_DIR="$("$VENV/bin/python" -c 'import importlib.util,os;print(os.path.dirname(importlib.util.find_spec("openvr").origin))')"
+  # Resolve from / so a checkout install looks at the venv, not the tree in cwd.
+  OVR_DIR="$(cd / && "$VENV/bin/python" -c 'import importlib.util,os;print(os.path.dirname(importlib.util.find_spec("openvr").origin))')"
   curl -fsSL -o "$OVR_DIR/libopenvr_api_64.so" \
     "https://raw.githubusercontent.com/ValveSoftware/openvr/$OPENVR_COMMIT/bin/linuxarm64/libopenvr_api.so" \
     || fail "couldn't download the SteamVR library."
@@ -90,7 +91,10 @@ fi
 # The shim is tiny and headerless; a missing compiler or a failed build just
 # leaves the feature off — it must never fail the install.
 if [[ "$(uname -m)" == "aarch64" ]] && [[ -f "$SRC/frameassist/overlay_point.c" ]]; then
-  PKG_DIR="$("$VENV/bin/python" -c 'import importlib.util,os;print(os.path.dirname(importlib.util.find_spec("frameassist").origin))')"
+  # A checkout install must build into the INSTALLED package: find_spec() from
+  # the checkout directory resolves the source tree, which used to leave the
+  # venv without the shim ("unavailable on this device", live 2026-11-11).
+  PKG_DIR="$(cd / && "$VENV/bin/python" -c 'import importlib.util,os;print(os.path.dirname(importlib.util.find_spec("frameassist").origin))')"
   if command -v gcc >/dev/null 2>&1 \
      && gcc -shared -fPIC -O2 -o "$PKG_DIR/overlay_point.so" "$SRC/frameassist/overlay_point.c" 2>/dev/null; then
     ok "Window-mic helper built"
