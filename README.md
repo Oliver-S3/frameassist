@@ -232,8 +232,7 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
 
 1. **Open the desktop on your Frame** (switch to Linux desktop / KDE) and open **Konsole**.
 2. **Copy and paste one of these lines, then press Enter:**
-   - **One-line install** (once the project is published on GitHub — the URL
-     below is a placeholder):
+   - **One-line install** (downloads and runs the installer):
      ```bash
      curl -fsSL https://raw.githubusercontent.com/Oliver-S3/frameassist/main/install.sh | bash && exec bash
      ```
@@ -247,17 +246,13 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    > If it asks for a password: voice typing needs permission to act like a
    > keyboard. No password yet? Press `Ctrl+C`, type `passwd`, set a password,
    > then run the line again.
-3. *(Optional, recommended)* **Enable the Check for updates button.** Install with
-   your repo URL set so the app knows where to look for new versions, then it
-   checks `<base>/raw/<branch>/version.json` and updates itself from the repo.
-   This single line downloads *and* runs the installer, so you can copy and paste
-   it on its own (no local `install.sh` needed):
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/Oliver-S3/frameassist/main/install.sh | FRAMEASSIST_UPDATE_BASE=https://github.com/Oliver-S3/frameassist bash
-   ```
-   (See [Updates and the update button](#updates) for Gitea vs GitHub URL forms.)
-   Without it, Settings → Check for updates simply says no update source is
-   configured. See [Updates](#updates).
+3. **Updates work out of the box.** The GitHub installer bakes the repo URL into
+   the desktop launcher, the background service and the venv, so Settings →
+   Check for updates checks
+   `raw.githubusercontent.com/Oliver-S3/frameassist/main/version.json` and
+   upgrades in place. Installing from a fork or a private Git server? Pass
+   `FRAMEASSIST_UPDATE_BASE=<your repo>` when installing (see
+   [Updates](#updates)).
 
 4. *(Optional)* **Enable SSH** so the headset can be reached from another
    machine — handy for remote help or running the installer/updates from your
@@ -289,9 +284,12 @@ To make sure everything is set up, run:
 ## Updates
 
 **Settings → Check for updates** checks your install's repo for a newer version
-and updates the app in place (with automatic rollback if an update fails).
+and updates the app in place. If an update fails, the version you
+already have stays put.
 
-- It works when FrameAssist was installed with `FRAMEASSIST_UPDATE_BASE` set (see
+- GitHub installs use the GitHub repo by default — the installer bakes it
+  into the launcher, the background service and the venv. For a fork or a
+  private Git server, install with `FRAMEASSIST_UPDATE_BASE` set (see
   [Install](#install-about-5-minutes-once)); the app then reads
   `<base>/raw/<branch>/version.json` and installs the matching source archive
   (`<base>/archive/<branch>.tar.gz`).

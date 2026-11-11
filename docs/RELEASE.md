@@ -29,8 +29,9 @@ frameassist/__init__.py   __version__ = "..."
 version.json              {"version": "..."}
 ```
 
-The in-app **Check for updates** now supports both host styles via
-`FRAMEASSIST_UPDATE_BASE` (choose whichever your public repo is):
+The in-app **Check for updates** uses GitHub's pattern by default (install.sh
+bakes the base into the launcher, the unit and `$VENV/frameassist.update`).
+Set `FRAMEASSIST_UPDATE_BASE` for Gitea/self-host or for a fork:
 
 | Base you set | Check endpoint | Install archive |
 |---|---|---|
