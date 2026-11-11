@@ -181,7 +181,8 @@ def run_window(cfg):
         return ok, summary
 
     window = MainWindow(cfg, engine, on_settings=_on_settings_changed,
-                        on_close=_on_close, link=link,
+                        on_close=_on_close,
+                        on_settings_open=vr.set_settings_open, link=link,
                         on_turn_on=vr.enable_global_input, on_power=_on_power)
 
     def _calibrate_overlay_factory():

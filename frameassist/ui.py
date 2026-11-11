@@ -410,12 +410,14 @@ class MainWindow(QMainWindow):
     state_sig = Signal(str, str)
     transcript_sig = Signal(str)
 
-    def __init__(self, cfg, engine, on_settings=None, on_close=None, link=None,
+    def __init__(self, cfg, engine, on_settings=None, on_close=None,
+                 on_settings_open=None, link=None,
                  on_turn_on=None, on_power=None):
         super().__init__()
         self.cfg = cfg
         self.engine = engine
         self.on_settings = on_settings
+        self.on_settings_open = on_settings_open
         # Closing the window (X or App > Quit) must NOT stop the background
         # copy: it takes the shortcuts back when our link drops.
         self.on_close = on_close
@@ -588,7 +590,14 @@ class MainWindow(QMainWindow):
             self.cfg.clear()
             self.cfg.update(fresh)
         dialog = SettingsDialog(self.cfg, self)
-        if dialog.exec():
+        if self.on_settings_open:
+            self.on_settings_open(True)
+        try:
+            accepted = dialog.exec()
+        finally:
+            if self.on_settings_open:
+                self.on_settings_open(False)
+        if accepted:
             values = dialog.values()
             for key, value in values.items():
                 self.cfg[key] = value

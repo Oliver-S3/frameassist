@@ -107,6 +107,36 @@ def test_open_settings_updates_the_engine_config_in_place(app, monkeypatch):
     window.close()
 
 
+def test_open_settings_freezes_the_anchor_around_the_dialog(app, monkeypatch):
+    import frameassist.ui as ui
+    from frameassist.config import DEFAULTS
+    from frameassist.engine import Engine
+    calls = []
+
+    class FakeDialog:
+        def __init__(self, cfg, parent=None):
+            pass
+
+        def exec(self):
+            calls.append("exec")
+            return 0
+
+        def values(self):
+            return {}
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ui, "load", lambda: dict(DEFAULTS))
+    monkeypatch.setattr(ui, "SettingsDialog", FakeDialog)
+    cfg = dict(DEFAULTS)
+    window = MainWindow(cfg, Engine(cfg), on_settings=lambda c: None,
+                        on_settings_open=lambda on: calls.append(on))
+    window._open_settings()
+    assert calls == [True, "exec", False]
+    window.close()
+
+
 def test_calibrate_dialog_has_fov_button_and_instructions(app):
     import types
     engine = types.SimpleNamespace(calibrate=None)

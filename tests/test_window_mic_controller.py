@@ -653,10 +653,10 @@ def test_bar_mic_waits_for_a_window():
     assert mic._mics == {}
 
 
-def test_bar_mic_sticks_to_its_window_when_transients_appear():
-    """Transient dashboard windows (the Settings dialog, popups) must not drag
-    the mic off the bar (live 2026-11-10 18:46: anchor bounced 129->131->129
-    ->132->129 in 15 s)."""
+def test_bar_mic_freezes_while_settings_is_open():
+    """The app's Settings dialog is itself a new dashboard window; it used to
+    steal the anchor and drag the mic onto the dialog (live 2026-11-10 18:46:
+    anchor bounced 129->131->129->132->129 in 15 s)."""
     api = FakeApi()
     api.add_window(49)
     api.add_window(57)
@@ -667,15 +667,16 @@ def test_bar_mic_sticks_to_its_window_when_transients_appear():
     bar_mic = mic._mics[wm.BAR_SEQ]
     assert bar_mic.win_handle == api.windows[57]["handle"]
 
-    api.add_window(61)  # a dialog/popup appears as the newest seq
+    mic.settings_open = True
+    api.add_window(61)  # the Settings dialog appears as the newest seq
     clock.advance(wm.SCAN_S + 0.1)
     mic.tick(clock())
-    assert bar_mic.win_handle == api.windows[57]["handle"]  # still sticky
+    assert bar_mic.win_handle == api.windows[57]["handle"]  # frozen
 
-    del api.windows[57]  # the desktop window closes: follow the surviving one
+    mic.settings_open = False
     clock.advance(wm.SCAN_S + 0.1)
     mic.tick(clock())
-    assert bar_mic.win_handle == api.windows[61]["handle"]
+    assert bar_mic.win_handle == api.windows[61]["handle"]  # follows again
 
 
 def test_bar_mic_uses_the_newest_window_and_hides_when_it_closes():

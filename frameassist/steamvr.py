@@ -232,6 +232,11 @@ class SteamVR:
         if grips_with_mic is not None:
             self.grips_with_mic = bool(grips_with_mic)
 
+    def set_settings_open(self, on):
+        """Freeze the bar mic's anchor while the Settings dialog is open."""
+        if self.mic is not None:
+            self.mic.settings_open = bool(on)
+
     def set_autolaunch(self, on):
         self.autolaunch = on
         self._requests.append(lambda vr: vr.VRApplications().setApplicationAutoLaunch(APP_KEY, on))
