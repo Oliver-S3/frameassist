@@ -134,7 +134,7 @@ BAR_SEQ = 0
 # The Steam bar is itself a readable Absolute overlay; its pose is what moves
 # when the dock is dragged, so the plate is pinned to its right end.
 DOCK_KEY = "valve.steam.gamepadui.bar"
-DOCK_GAP = 0.09     # plate centre beyond the bar's right corner
+DOCK_GAP = 0.10     # plate centre beyond the bar's right corner
 DOCK_FRONT = 0.04   # toward the bar's facing (in front of the dock)
 # Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
 # newest-seq window). Only landscape windows are candidates for the bar anchor;
