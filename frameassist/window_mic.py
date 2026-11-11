@@ -131,6 +131,11 @@ BAR_RIGHT = 0.312   # metres right of the window centre (bar end + gap)
 BAR_GAP_Y = 0.195   # metres below the window's bottom edge (bar centre)
 BAR_FRONT = 0.212   # metres toward the viewer (flush with the bar's plane)
 BAR_SEQ = 0
+# The Steam bar is itself a readable Absolute overlay; its pose is what moves
+# when the dock is dragged, so the plate is pinned to its right end.
+DOCK_KEY = "valve.steam.gamepadui.bar"
+DOCK_GAP = 0.075    # plate centre beyond the bar's right corner
+DOCK_FRONT = 0.06   # toward the bar's facing (in front of the dock)
 # Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
 # newest-seq window). Only landscape windows are candidates for the bar anchor;
 # portrait windows (a phone-shaped app, the Settings dialog) are skipped.
@@ -305,6 +310,36 @@ def bar_window(api, windows):
         if scale and scale[1] > 0 and scale[0] / scale[1] >= BAR_MIN_ASPECT:
             return seq
     return max(windows) if windows else None
+
+
+def dock_from_corners(ll, lr, ul):
+    """(target, right_u, up_u, facing) for the plate right of the Steam bar.
+
+    ``ll``, ``lr`` and ``ul`` are world-space corner positions probed from the
+    bar overlay (lower-left, lower-right, upper-left). Returns None when the
+    corners are missing or degenerate (the bar reads zeros while it is down).
+    """
+    if not (ll and lr and ul):
+        return None
+
+    def norm(v):
+        n = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
+        return None if n < 1e-6 else tuple(c / n for c in v)
+
+    right = norm((lr[0] - ll[0], lr[1] - ll[1], lr[2] - ll[2]))
+    up = norm((ul[0] - ll[0], ul[1] - ll[1], ul[2] - ll[2]))
+    if not right or not up:
+        return None
+    if up[1] < 0:  # texture y points down; keep the plate upright
+        up = tuple(-c for c in up)
+    facing = (right[1] * up[2] - right[2] * up[1],
+              right[2] * up[0] - right[0] * up[2],
+              right[0] * up[1] - right[1] * up[0])
+    height = math.sqrt(sum((ul[i] - ll[i]) ** 2 for i in range(3)))
+    target = tuple(lr[i] + up[i] * (height / 2)
+                   + right[i] * (DOCK_GAP + PLATE_METERS / 2)
+                   + facing[i] * DOCK_FRONT for i in range(3))
+    return target, right, up, facing
 
 
 def absolute_matrix(center, right_u, up_u, facing):
@@ -606,6 +641,7 @@ class WindowMic:
         self._pressed_at = None
         self._last_tick = None
         self._bar_seq = None       # window the bar mic is anchored to
+        self._dock_logged = False
         self.settings_open = False # freeze the anchor while Settings is open
         self._frozen_logged = False
         self._empty_since = None   # first scan of the current zero-window run
@@ -672,45 +708,55 @@ class WindowMic:
     # -- Steam-bar mic -----------------------------------------------------
 
     def _sync_bar(self, now, dt):
-        """Keep ONE mic at the right end of the Steam bar under the desktop
-        window. The bar is fixed in the room; the desktop window is attached
-        above it, so the bar's pose is the window quad plus fixed offsets.
-        Portrait windows (the app's own Settings dialog) are ignored: they
-        became the newest seq and parked the plate on the dialog."""
+        """Keep ONE mic at the right end of the Steam bar.
+
+        The bar is an Absolute overlay (valve.steam.gamepadui.bar): its own
+        pose is the only thing that moves when the dock is dragged, so the
+        plate is pinned to its right end. The desktop-window formula stays as
+        the fallback for when the bar is down (its transform reads zeros)."""
         if now - self._last_scan < SCAN_S:
             return
         self._last_scan = now
-        windows = self._scan_windows()
         mic = self._mics.get(BAR_SEQ)
-        if not windows:
-            if mic is not None and not mic.hidden:
-                self.api.hide(mic.handle)
-                mic.hidden = True
-            return
-        # Freeze while the app's own Settings dialog is open: it is a new
-        # dashboard window and used to steal the anchor, parking the mic on
-        # the dialog and dragging it around (live 2026-11-10 18:46:
-        # 129 -> 131 -> 129 -> 132 -> 129 within 15 s). When the dialog
-        # closes, resume following the newest window.
-        if self.settings_open and self._bar_seq in windows:
-            if not self._frozen_logged:
-                self._frozen_logged = True
-                log.info("window mic: bar anchor frozen on window.%d while "
-                         "Settings is open", self._bar_seq)
-            seq = self._bar_seq
-        else:
-            self._frozen_logged = False
-            seq = bar_window(self.api, windows)
-        if seq is None:
-            if mic is not None and not mic.hidden:
-                self.api.hide(mic.handle)
-                mic.hidden = True
-            return
-        win_handle = windows[seq]
-        if seq != self._bar_seq:
-            self._bar_seq = seq
-            log.info("window mic: bar anchor window.%d (type %s)", seq,
-                     self.api.get_transform_type(win_handle))
+
+        matrix = self._dock_matrix()
+        win_handle = None
+        if matrix is None:
+            windows = self._scan_windows()
+            if not windows:
+                if mic is not None and not mic.hidden:
+                    self.api.hide(mic.handle)
+                    mic.hidden = True
+                return
+            if self.settings_open and self._bar_seq in windows:
+                if not self._frozen_logged:
+                    self._frozen_logged = True
+                    log.info("window mic: bar anchor frozen on window.%d while "
+                             "Settings is open", self._bar_seq)
+                seq = self._bar_seq
+            else:
+                self._frozen_logged = False
+                seq = bar_window(self.api, windows)
+            if seq is None:
+                if mic is not None and not mic.hidden:
+                    self.api.hide(mic.handle)
+                    mic.hidden = True
+                return
+            win_handle = windows[seq]
+            if seq != self._bar_seq:
+                self._bar_seq = seq
+                log.info("window mic: bar anchor window.%d (type %s)", seq,
+                         self.api.get_transform_type(win_handle))
+            matrix = self._bar_matrix(win_handle)
+            if matrix is None:
+                if mic is not None and not mic.hidden:
+                    self.api.hide(mic.handle)
+                    mic.hidden = True
+                return
+        elif not self._dock_logged:
+            self._dock_logged = True
+            log.info("window mic: bar anchored to the Steam bar overlay")
+
         if mic is None:
             key = f"{self.app_key}.mic.bar"
             handle = self.api.find(key) or self.api.create(
@@ -721,15 +767,29 @@ class WindowMic:
             self._mics[BAR_SEQ] = mic
             log.info("window mic: Steam-bar mic shown")
         mic.win_handle = win_handle
-        matrix = self._bar_matrix(win_handle)
-        if matrix is None:
-            if not mic.hidden:
-                self.api.hide(mic.handle)
-                mic.hidden = True
-            return
         self.api.set_absolute(mic.handle, STANDING, matrix)
         self.api.show(mic.handle)
         mic.hidden = False
+
+    def _dock_matrix(self):
+        """Standing-space transform for the plate on the Steam bar, or None."""
+        handle = self.api.find(DOCK_KEY)
+        if not handle:
+            return None
+        scale = self.api.get_mouse_scale(handle)
+        if not scale:
+            return None
+        mx, my = scale
+        ll = self.api.coords(handle, 0.0, 0.0)
+        lr = self.api.coords(handle, float(mx), 0.0)
+        ul = self.api.coords(handle, 0.0, float(my))
+        pose = dock_from_corners(
+            None if ll is None else (ll[3], ll[7], ll[11]),
+            None if lr is None else (lr[3], lr[7], lr[11]),
+            None if ul is None else (ul[3], ul[7], ul[11]))
+        if pose is None:
+            return None
+        return absolute_matrix(*pose)
 
     def _bar_matrix(self, win_handle):
         """Standing-space transform for the mic centre at the bar's right

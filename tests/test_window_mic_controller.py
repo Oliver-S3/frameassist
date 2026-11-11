@@ -621,6 +621,30 @@ def test_hud_mic_click_starts_and_stops_recording():
 # Steam-bar ("bar") mic: fixed in the room, under the active window
 # --------------------------------------------------------------------------
 
+def test_dock_pose_lands_right_of_the_bar():
+    pose = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.1, 0.0))
+    assert pose is not None
+    target, right_u, up_u, facing = pose
+    assert right_u == pytest.approx((1.0, 0.0, 0.0), abs=1e-9)
+    assert up_u == pytest.approx((0.0, 1.0, 0.0), abs=1e-9)
+    assert facing == pytest.approx((0.0, 0.0, 1.0), abs=1e-9)
+    assert target == pytest.approx(
+        (1.0 + wm.DOCK_GAP + wm.PLATE_METERS / 2, 0.05, wm.DOCK_FRONT), abs=1e-9)
+
+
+def test_dock_pose_flips_a_downward_texture_axis():
+    pose = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, -0.1, 0.0))
+    assert pose is not None
+    _target, _right, up_u, facing = pose
+    assert up_u[1] > 0
+    assert facing[2] > 0
+
+
+def test_dock_pose_rejects_a_bar_that_is_down():
+    assert wm.dock_from_corners(None, None, None) is None
+    assert wm.dock_from_corners((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)) is None
+
+
 def test_bar_mic_parks_at_the_right_of_the_window_bar():
     api = FakeApi()
     api.add_window(49)
