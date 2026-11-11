@@ -236,6 +236,7 @@ class SteamVR:
         """Freeze the bar mic's anchor while the Settings dialog is open."""
         if self.mic is not None:
             self.mic.settings_open = bool(on)
+            log.info("window mic: Settings dialog open=%s", bool(on))
 
     def set_autolaunch(self, on):
         self.autolaunch = on

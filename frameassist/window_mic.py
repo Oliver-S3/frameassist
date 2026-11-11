@@ -607,6 +607,7 @@ class WindowMic:
         self._last_tick = None
         self._bar_seq = None       # window the bar mic is anchored to
         self.settings_open = False # freeze the anchor while Settings is open
+        self._frozen_logged = False
         self._empty_since = None   # first scan of the current zero-window run
         self._last_beat = None     # last heartbeat log
         self.api_suspect = False   # set after a zero-window drought
@@ -692,8 +693,13 @@ class WindowMic:
         # 129 -> 131 -> 129 -> 132 -> 129 within 15 s). When the dialog
         # closes, resume following the newest window.
         if self.settings_open and self._bar_seq in windows:
+            if not self._frozen_logged:
+                self._frozen_logged = True
+                log.info("window mic: bar anchor frozen on window.%d while "
+                         "Settings is open", self._bar_seq)
             seq = self._bar_seq
         else:
+            self._frozen_logged = False
             seq = bar_window(self.api, windows)
         if seq is None:
             if mic is not None and not mic.hidden:
