@@ -161,6 +161,9 @@ fill in the three fields the helper printed:
 | PC port | `8763` (default) |
 | Pairing code | `K7QF-3MZX` (the one the helper printed) |
 
+The pairing code field shows dots as you type; tap the little **eye** button
+beside it to check what you entered.
+
 Tap **Test connection** — it reports **reachable** when the PC helper answers.
 Then **Save**. Dictation now goes to the PC.
 
@@ -328,7 +331,8 @@ microphone, to isolate a streamed-PC problem to the network/helper.
 - **Text**: add a space after each dictation; press Enter after each dictation;
   type into the text box or only copy to the clipboard.
 - **Buttons**: keep shortcuts on during VR games; start automatically with
-  SteamVR.
+  SteamVR. It starts hidden (no **tray icon** on boot), so just open
+  FrameAssist from your apps when you want the window or Settings.
 - **Mic button (optional, off by default)**: **Show a mic button in VR** for
   people who prefer clicking a plate over the grip gestures. The plate is pinned
   beside the Steam bar/dock and follows it. **Mic nudge right (cm)** shifts it right, along the dock, when the dock

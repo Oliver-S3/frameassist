@@ -267,7 +267,20 @@ class SettingsDialog(QDialog):
 
         self.autostart = QCheckBox("Start automatically with SteamVR")
         self.autostart.setChecked(cfg.get("autostart", True))
-        form.addRow("", self.autostart)
+        self.autostart_hint = QLabel(
+            "No tray icon on boot — the service runs hidden. Open the app for "
+            "settings.")
+        self.autostart_hint.setWordWrap(True)
+        self.autostart_hint.setStyleSheet("color: #e7c46b;")
+        self.autostart_hint.setVisible(self.autostart.isChecked())
+        self.autostart.toggled.connect(self.autostart_hint.setVisible)
+        autostart_box = QWidget()
+        autostart_col = QVBoxLayout(autostart_box)
+        autostart_col.setContentsMargins(0, 0, 0, 0)
+        autostart_col.setSpacing(2)
+        autostart_col.addWidget(self.autostart)
+        autostart_col.addWidget(self.autostart_hint)
+        form.addRow("", autostart_box)
 
         self.window_mic = QCheckBox("Show a mic button in VR")
         self.window_mic.setChecked(cfg.get("window_mic", False))

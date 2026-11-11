@@ -297,3 +297,12 @@ def test_pairing_code_eye_reveals_the_code(app):
     assert dialog.values()["host_secret"] == "s3cr3t"
     dialog.host_secret_eye.setChecked(False)
     assert dialog.host_secret.echoMode() == QLineEdit.Password
+
+
+def test_autostart_hint_explains_the_missing_tray_icon(app):
+    from frameassist.config import DEFAULTS
+    dialog = SettingsDialog(dict(DEFAULTS, autostart=True))
+    assert not dialog.autostart_hint.isHidden()
+    assert "No tray icon" in dialog.autostart_hint.text()
+    dialog.autostart.setChecked(False)
+    assert dialog.autostart_hint.isHidden()
