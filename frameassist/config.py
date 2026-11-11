@@ -82,6 +82,9 @@ def load(path=None):
             cfg[key] = DEFAULTS[key]
         elif key in cfg:
             cfg[key] = value
+    # The mic is dock-only now: an old config that had drifted to a window
+    # anchor silently put a mic on every window (live 2026-11-11).
+    cfg["window_mic_anchor"] = "bar"
     if cfg["model"] not in MODELS:
         cfg["model"] = DEFAULTS["model"]
     for key in ("autostart", "window_mic"):

@@ -72,12 +72,9 @@ talk, so you don't need the window open.
 ### Optional mic button
 
 The grip gestures are the default. If holding both grips is awkward, turn on
-**Settings → Show a mic button in VR**: a small mic plate floats in VR that you
-click-and-hold with the laser to dictate instead of gripping. **Mic position**
-puts it either just right of the Steam bar under your window (fixed in the room
-with the bar, so it follows the dock as you move it), at the bottom of your view
-(follows your head), or one on each floating window. It is off out of the box;
-the grips always work.
+**Settings → Show a mic button in VR**: a small mic plate is pinned just right
+of the Steam bar/dock under your window, so it follows the dock as you move it.
+It is off out of the box; the grips always work.
 
 When your dock grows as you pin more apps, the bar's right end moves with it;
 the mic follows the dock, and **Dock mic nudge (cm)** in Settings pushes it
@@ -333,9 +330,8 @@ microphone, to isolate a streamed-PC problem to the network/helper.
 - **Buttons**: keep shortcuts on during VR games; start automatically with
   SteamVR.
 - **Mic button (optional, off by default)**: **Show a mic button in VR** for
-  people who prefer clicking a plate over the grip gestures. **Mic position**
-  chooses right of the Steam bar (follows the dock), bottom of view (follows
-  your head), or one per floating window. **Dock mic nudge (cm)** shifts it
+  people who prefer clicking a plate over the grip gestures. The plate is pinned
+  beside the Steam bar/dock and follows it. **Dock mic nudge (cm)** shifts it
   right when the dock grows with pinned apps. **Grips + mic** keeps the grips
   live while the button is showing.
 - **AI polish**: tidy each dictation with an AI model — **your OpenRouter

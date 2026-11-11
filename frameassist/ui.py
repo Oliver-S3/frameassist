@@ -237,26 +237,11 @@ class SettingsDialog(QDialog):
         self.window_mic = QCheckBox("Show a mic button in VR")
         self.window_mic.setChecked(cfg.get("window_mic", False))
         self.window_mic.setToolTip(
-            "A small mic you hold with the laser to dictate. \"Right of the Steam "
-            "bar\" parks it beside the bar under the active window (fixed in "
-            "the room with it, and works over a streamed PC desktop); \"Bottom "
-            "of view\" follows your head; \"On each window\" pins one to every "
-            "floating window. Off by default.")
+            "A small mic you hold with the laser to dictate. It is pinned beside "
+            "the Steam bar/dock under the active window, so it follows the dock "
+            "as you move it and works over a streamed PC desktop. Off by default; "
+            "the grip gestures always work.")
         form.addRow("Mic button", self.window_mic)
-        self.window_mic_anchor = QComboBox()
-        self.window_mic_anchor.addItem(
-            "Right of the Steam bar (under the active window)", "bar")
-        self.window_mic_anchor.addItem("Bottom of view (follows your head)", "hud")
-        self.window_mic_anchor.addItem("On each floating window", "window")
-        anchor = cfg.get("window_mic_anchor", "bar")
-        idx = max(0, self.window_mic_anchor.findData(anchor))
-        self.window_mic_anchor.setCurrentIndex(idx)
-        self.window_mic_anchor.setToolTip(
-            "Where the mic button lives. \"Right of the Steam bar\" is fixed in "
-            "the room with the bar and the window above it; \"Bottom of view\" "
-            "follows your head; \"On each window\" only finds native "
-            "(gamescope) floating windows.")
-        form.addRow("Mic position", self.window_mic_anchor)
 
         self.dock_extra = QDoubleSpinBox()
         self.dock_extra.setRange(0.0, 30.0)
@@ -401,7 +386,6 @@ class SettingsDialog(QDialog):
             "rest_while_streaming": self.rest_stream.isChecked(),
             "autostart": self.autostart.isChecked(),
             "window_mic": self.window_mic.isChecked(),
-            "window_mic_anchor": self.window_mic_anchor.currentData(),
             "window_mic_dock_extra": self.dock_extra.value() / 100.0,
             "ai_polish": self.ai_polish.isChecked(),
             "ai_key": self.ai_key.text().strip(),

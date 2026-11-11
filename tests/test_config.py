@@ -122,3 +122,12 @@ def test_host_port_bad_value_repaired(tmp_path):
     path.write_text(json.dumps({"host_port": "not-a-port"}))
     cfg = c.load(path)
     assert cfg["host_port"] == c.DEFAULTS["host_port"]
+
+
+def test_load_migrates_a_window_mic_anchor_to_the_dock(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"window_mic": True,
+                                "window_mic_anchor": "window"}),
+                    encoding="utf-8")
+    cfg = c.load(path)
+    assert cfg["window_mic_anchor"] == "bar"
