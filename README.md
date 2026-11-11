@@ -77,8 +77,8 @@ of the Steam bar/dock under your window, so it follows the dock as you move it.
 It is off out of the box; the grips always work.
 
 When your dock grows as you pin more apps, the bar's right end moves with it;
-the mic follows the dock, and **Dock mic nudge (cm)** in Settings pushes it
-further right if the growing bar creeps up to it.
+the mic follows the dock, and **Mic nudge right (cm)** in Settings pushes it further right
+(along the dock) if the growing bar creeps up to it.
 
 ## Known limits
 
@@ -331,8 +331,8 @@ microphone, to isolate a streamed-PC problem to the network/helper.
   SteamVR.
 - **Mic button (optional, off by default)**: **Show a mic button in VR** for
   people who prefer clicking a plate over the grip gestures. The plate is pinned
-  beside the Steam bar/dock and follows it. **Dock mic nudge (cm)** shifts it
-  right when the dock grows with pinned apps. **Grips + mic** keeps the grips
+  beside the Steam bar/dock and follows it. **Mic nudge right (cm)** shifts it right, along the dock, when the dock
+  grows with pinned apps. **Grips + mic** keeps the grips
   live while the button is showing.
 - **AI polish**: tidy each dictation with an AI model — **your OpenRouter
   account** (default; only the text is sent) **or a local OpenAI-compatible

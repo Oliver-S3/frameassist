@@ -250,10 +250,10 @@ class SettingsDialog(QDialog):
         self.dock_extra.setValue(
             float(cfg.get("window_mic_dock_extra", 0.0)) * 100.0)
         self.dock_extra.setToolTip(
-            "Extra centimetres to the right of the dock's corner. Bump it when "
-            "the dock grows with more pinned apps; the mic still follows the "
-            "dock itself.")
-        form.addRow("Dock mic nudge (cm)", self.dock_extra)
+            "Moves the mic RIGHT by this many centimetres (away from the avatar). "
+            "Forward/back and height are fixed; bump this when the dock grows "
+            "with more pinned apps, so the wider dock doesn't run into the mic.")
+        form.addRow("Mic nudge right (cm)", self.dock_extra)
 
         self.grips_with_mic = QCheckBox(
             "Also use the grip gestures while the mic button is showing")
