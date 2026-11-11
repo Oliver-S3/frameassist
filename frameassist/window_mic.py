@@ -136,6 +136,7 @@ BAR_SEQ = 0
 DOCK_KEY = "valve.steam.gamepadui.bar"
 DOCK_GAP = 0.10     # plate centre beyond the bar's right corner
 DOCK_FRONT = 0.04   # toward the bar's facing (in front of the dock)
+DOCK_DROP = 0.0254  # one inch below the bar: out of reach of a growing dock
 # Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
 # newest-seq window). Only landscape windows are candidates for the bar anchor;
 # portrait windows (a phone-shaped app, the Settings dialog) are skipped.
@@ -341,6 +342,8 @@ def dock_from_corners(ll, lr, ul, extra=0.0):
     target = tuple(lr[i] + up[i] * (height / 2)
                    + right[i] * (DOCK_GAP + PLATE_METERS / 2 + extra)
                    + facing[i] * DOCK_FRONT for i in range(3))
+    # Drop one inch: a dock that grows to the right then never overlaps it.
+    target = (target[0], target[1] - DOCK_DROP, target[2])
     return target, right, up, facing
 
 

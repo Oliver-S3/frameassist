@@ -629,7 +629,8 @@ def test_dock_pose_lands_right_of_the_bar():
     assert up_u == pytest.approx((0.0, 1.0, 0.0), abs=1e-9)
     assert facing == pytest.approx((0.0, 0.0, 1.0), abs=1e-9)
     assert target == pytest.approx(
-        (1.0 + wm.DOCK_GAP + wm.PLATE_METERS / 2, 0.05, wm.DOCK_FRONT), abs=1e-9)
+        (1.0 + wm.DOCK_GAP + wm.PLATE_METERS / 2,
+         0.05 - wm.DOCK_DROP, wm.DOCK_FRONT), abs=1e-9)
 
 
 def test_dock_extra_moves_the_plate_further_right():
