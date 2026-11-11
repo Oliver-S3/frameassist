@@ -156,7 +156,7 @@ def test_run_self_update_no_source_configured(monkeypatch):
     assert "no update source" in update.run_self_update().lower()
 
 
-def test_run_self_update_rolls_back_on_failure(monkeypatch):
+def test_run_self_update_reports_failure_and_keeps_previous(monkeypatch):
     monkeypatch.setattr(update, "DEFAULT_URL", "https://x/version.json")
     monkeypatch.setattr(update, "current_version", lambda: "1.0.0")
     monkeypatch.setattr("urllib.request.urlopen", lambda *a, **k: _json_resp("2.0.0"))
@@ -180,7 +180,7 @@ def test_run_self_update_rolls_back_on_failure(monkeypatch):
     results = [subprocess.CompletedProcess(["x"], returncode=1, stdout="", stderr="boom")]
     monkeypatch.setattr("frameassist.update.subprocess.run", lambda *a, **k: results.pop(0))
     msg = update.run_self_update()
-    assert "failed" in msg.lower()
+    assert msg == "Update failed; the previous version was kept."
 
 
 def _json_resp(text):

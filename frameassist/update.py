@@ -1,9 +1,10 @@
-"""In-app updates with automatic rollback.
+"""In-app updates.
 
 Checks a small version file and, when a newer version exists, upgrades the
-installed package inside its own virtualenv. If anything fails after the
-upgrade starts, the previous version is reinstalled automatically, so a bad
-update never leaves FrameAssist broken.
+installed package inside its own virtualenv. pip installs atomically enough
+that a failed upgrade leaves the previous version in place, so a failure is
+reported as "previous version kept" instead of attempting a rollback that
+could not work (the package is not on PyPI).
 
 Update source (in order of preference):
 1. ``FRAMEASSIST_UPDATE_BASE`` + ``FRAMEASSIST_UPDATE_BRANCH`` (default "main")
@@ -60,7 +61,6 @@ DEFAULT_BASE = (os.environ.get("FRAMEASSIST_UPDATE_BASE", "").strip()
                 or _BAKED_BASE)
 DEFAULT_BRANCH = (os.environ.get("FRAMEASSIST_UPDATE_BRANCH", "").strip()
                   or _BAKED_BRANCH)
-VERSION_FILE = Path(sys.prefix) / "lib" / "python" / "frameassist.version"
 
 
 def current_version():
@@ -157,8 +157,6 @@ def run_self_update(url=None, pip_args=None):
     if _version_tuple(last) <= _version_tuple(current_version()):
         return "Already up to date."
 
-    previous = str(VERSION_FILE.read_text()) if VERSION_FILE.exists() else current_version()
-
     def _pip(*args):
         return subprocess.run(
             [sys.executable, "-m", "pip", "install", "--quiet", *args],
@@ -169,19 +167,11 @@ def run_self_update(url=None, pip_args=None):
         result = _pip(*(pip_args or source_args))
         if result.returncode != 0:
             log.warning("update failed: %s", result.stderr[-400:])
-            return "Update failed: pip reported an error."
-        # re-save the version marker
-        VERSION_FILE.parent.mkdir(parents=True, exist_ok=True)
-        VERSION_FILE.write_text(last or current_version())
+            return "Update failed; the previous version was kept."
         return "Updated. Restart FrameAssist to use the new version."
     except Exception as err:
-        # Roll back to the previous version, best effort.
-        log.exception("update failed; rolling back")
-        try:
-            _pip("--force-reinstall", f"frameassist=={previous}")
-        except Exception as rollback_err:
-            log.exception("rollback failed: %s", rollback_err)
-        return f"Update failed and was rolled back: {err}"
+        log.exception("update failed")
+        return "Update failed; the previous version was kept."
 
 
 if __name__ == "__main__":

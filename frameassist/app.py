@@ -323,8 +323,14 @@ def _register(cfg):
     """Tell SteamVR about the app and set up starting with it. Prints a line
     the installer greps for."""
     from . import autostart
-    ok = autostart.set_enabled(True)
-    print("starts with SteamVR" if ok else "could not start with SteamVR")
+    # An update must not override a user who turned auto-start off: install.sh
+    # runs --register, and this used to re-enable the unit every time.
+    wanted = bool(cfg.get("autostart", True))
+    ok = autostart.set_enabled(wanted)
+    if not ok:
+        print("could not start with SteamVR")
+    else:
+        print("starts with SteamVR" if wanted else "does not start with SteamVR")
     return 0
 
 

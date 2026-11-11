@@ -303,6 +303,7 @@ def corner_target(center, width, height, right_u, up_u, facing,
 
 
 def bar_window(api, windows):
+    """Kept for a possible future revisit; the app is dock-only since 2026-11-11."""
     """The seq of the landscape window the Steam bar sits under, or None.
 
     ``windows`` maps seq -> overlay handle. Prefer the newest landscape window;
@@ -738,8 +739,8 @@ class WindowMic:
 
         The bar is an Absolute overlay (valve.steam.gamepadui.bar): its own
         pose is the only thing that moves when the dock is dragged, so the
-        plate is pinned to its right end. The desktop-window formula stays as
-        the fallback for when the bar is down (its transform reads zeros)."""
+        plate is pinned to its right end. Dock-only: when the bar can't be
+        read the plate hides; it is never placed from a window."""
         if now - self._last_scan < SCAN_S:
             return
         self._last_scan = now
@@ -747,39 +748,18 @@ class WindowMic:
 
         matrix = self._dock_matrix()
         win_handle = None
+        # Dock-only (decided 2026-11-11): the plate is never derived from a
+        # window. If the bar overlay can't be read (down, or not loaded yet),
+        # hide the plate instead of parking it on a floating window. The old
+        # window-derived fallback (`bar_window()` / `_bar_matrix()` below) is
+        # kept for a possible future revisit but is no longer called.
         if matrix is None:
-            windows = self._scan_windows()
-            if not windows:
-                if mic is not None and not mic.hidden:
-                    self.api.hide(mic.handle)
-                    mic.hidden = True
-                return
-            if self.settings_open and self._bar_seq in windows:
-                if not self._frozen_logged:
-                    self._frozen_logged = True
-                    log.info("window mic: bar anchor frozen on window.%d while "
-                             "Settings is open", self._bar_seq)
-                seq = self._bar_seq
-            else:
-                self._frozen_logged = False
-                seq = bar_window(self.api, windows)
-            if seq is None:
-                if mic is not None and not mic.hidden:
-                    self.api.hide(mic.handle)
-                    mic.hidden = True
-                return
-            win_handle = windows[seq]
-            if seq != self._bar_seq:
-                self._bar_seq = seq
-                log.info("window mic: bar anchor window.%d (type %s)", seq,
-                         self.api.get_transform_type(win_handle))
-            matrix = self._bar_matrix(win_handle)
-            if matrix is None:
-                if mic is not None and not mic.hidden:
-                    self.api.hide(mic.handle)
-                    mic.hidden = True
-                return
-        elif not self._dock_logged:
+            if mic is not None and not mic.hidden:
+                self.api.hide(mic.handle)
+                mic.hidden = True
+            self._dock_logged = False
+            return
+        if not self._dock_logged:
             self._dock_logged = True
             log.info("window mic: bar anchored to the Steam bar overlay")
 

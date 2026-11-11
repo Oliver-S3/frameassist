@@ -39,6 +39,14 @@ class FakeApi:
         self.absolutes = {}     # handle -> last 12-float matrix
         self.events = {}        # handle -> list of event dicts
         self.fail_coords = False
+        self.bar = None         # Steam bar overlay, set by add_bar()
+
+    def add_bar(self, ll=(-1.2, 0.68, -0.78), w_m=0.37, h_m=0.025,
+                ms=(1800, 120)):
+        lr = (ll[0] + w_m, ll[1], ll[2] - 0.18)
+        ul = (ll[0], ll[1] + h_m, ll[2])
+        self.bar = {"handle": 9001, "ll": _mat(*ll), "lr": _mat(*lr),
+                    "ul": _mat(*ul), "ms": ms}
 
     # -- window simulation helpers ----------------------------------------
 
@@ -55,6 +63,8 @@ class FakeApi:
     # -- OverlayApi surface --------------------------------------------------
 
     def find(self, key):
+        if key == wm.DOCK_KEY:
+            return self.bar["handle"] if self.bar else 0
         if key.startswith(wm.WINDOW_PREFIX):
             seq = int(key.rsplit(".", 1)[1])
             return self.windows.get(seq, {}).get("handle", 0)
@@ -94,6 +104,8 @@ class FakeApi:
         return 0
 
     def get_mouse_scale(self, handle):
+        if self.bar and self.bar["handle"] == handle:
+            return self.bar["ms"]
         for info in self.windows.values():
             if info["handle"] == handle:
                 return info["ms"]
@@ -114,7 +126,10 @@ class FakeApi:
     def coords(self, handle, x, y):
         if self.fail_coords:
             return None
-        for info in self.windows.values():
+        infos = list(self.windows.values())
+        if self.bar:
+            infos.append(self.bar)
+        for info in infos:
             if info["handle"] != handle:
                 continue
             mx, my = info["ms"] if info["ms"] else (1920, 1080)
@@ -655,77 +670,65 @@ def test_dock_pose_rejects_a_bar_that_is_down():
     assert wm.dock_from_corners((0.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0)) is None
 
 
-def test_bar_mic_parks_at_the_right_of_the_window_bar():
+def test_docked_bar_mic_lands_right_of_the_steam_bar():
     api = FakeApi()
-    api.add_window(49)
+    api.add_window(49)  # a window must NOT influence the dock placement
+    api.add_bar()
     clock = Clock()
     mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
                        anchor="bar")
     mic.tick(clock())
     bar_mic = mic._mics[wm.BAR_SEQ]
     assert bar_mic.key == "frameassist.voicetyping.mic.bar"
-    info = api.windows[49]
-    _width, height, right_u, up_u, facing = wm.quad_from_probe(
-        info["ll"], info["lr"], info["ul"])
-    centre = [info["ll"][3 + 4 * i]
-              + (info["lr"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
-              + (info["ul"][3 + 4 * i] - info["ll"][3 + 4 * i]) / 2
-              for i in range(3)]
-    expected = [centre[r] + right_u[r] * wm.BAR_RIGHT
-                - up_u[r] * (height / 2 + wm.BAR_GAP_Y)
-                + facing[r] * wm.BAR_FRONT for r in range(3)]
+    info = api.bar
+    ll = (info["ll"][3], info["ll"][7], info["ll"][11])
+    lr = (info["lr"][3], info["lr"][7], info["lr"][11])
+    ul = (info["ul"][3], info["ul"][7], info["ul"][11])
+    pose = wm.dock_from_corners(ll, lr, ul)
     matrix = api.absolutes[bar_mic.handle]
-    assert [matrix[3], matrix[7], matrix[11]] == pytest.approx(expected)
+    assert [matrix[3], matrix[7], matrix[11]] == pytest.approx(pose[0])
     assert bar_mic.handle in api.shown
 
 
-def test_bar_mic_waits_for_a_window():
+def test_bar_mic_waits_for_the_dock():
     api = FakeApi()
+    api.add_window(49)  # a window alone must not create a bar mic
     mic = wm.WindowMic(api, "frameassist.voicetyping", clock=Clock(),
                        anchor="bar")
     mic.tick(Clock()())
     assert mic._mics == {}
 
 
-def test_bar_mic_freezes_while_settings_is_open():
-    """The app's Settings dialog is itself a new dashboard window; it used to
-    steal the anchor and drag the mic onto the dialog (live 2026-11-10 18:46:
-    anchor bounced 129->131->129->132->129 in 15 s)."""
+def test_settings_open_does_not_move_a_docked_mic():
     api = FakeApi()
     api.add_window(49)
-    api.add_window(57)
+    api.add_bar()
     clock = Clock()
     mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
                        anchor="bar")
     mic.tick(clock())
     bar_mic = mic._mics[wm.BAR_SEQ]
-    assert bar_mic.win_handle == api.windows[57]["handle"]
-
+    before = list(api.absolutes[bar_mic.handle])
     mic.settings_open = True
-    api.add_window(61)  # the Settings dialog appears as the newest seq
+    api.add_window(61)  # the Settings dialog appears as the newest window
     clock.advance(wm.SCAN_S + 0.1)
     mic.tick(clock())
-    assert bar_mic.win_handle == api.windows[57]["handle"]  # frozen
-
-    mic.settings_open = False
-    clock.advance(wm.SCAN_S + 0.1)
-    mic.tick(clock())
-    assert bar_mic.win_handle == api.windows[61]["handle"]  # follows again
+    assert api.absolutes[bar_mic.handle] == before
+    assert bar_mic.handle in api.shown
 
 
-def test_bar_mic_uses_the_newest_window_and_hides_when_it_closes():
+def test_docked_bar_mic_hides_when_the_bar_disappears():
     api = FakeApi()
-    api.add_window(49, ll=(-2.0, 0.8, -2.0))
-    api.add_window(57)
+    api.add_window(49)
+    api.add_bar()
     clock = Clock()
     mic = wm.WindowMic(api, "frameassist.voicetyping", clock=clock,
                        anchor="bar")
     mic.tick(clock())
     bar_mic = mic._mics[wm.BAR_SEQ]
-    assert bar_mic.win_handle == api.windows[57]["handle"]
+    assert bar_mic.handle in api.shown
 
-    del api.windows[49]
-    del api.windows[57]
+    api.bar = None  # the bar overlay went away
     clock.advance(wm.SCAN_S + 0.1)
     mic.tick(clock())
     assert bar_mic.hidden

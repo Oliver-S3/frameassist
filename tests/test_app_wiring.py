@@ -268,3 +268,24 @@ def test_check_host_unreachable_is_a_problem(monkeypatch, capsys, tmp_path):
     out = capsys.readouterr().out
     assert "PC helper reachable" in out
     assert rc == 1
+
+
+def test_register_honors_the_saved_autostart_preference(monkeypatch, capsys):
+    """install.sh runs --register on every update; it must not flip a user's
+    "start with SteamVR off" back on (live 2026-11-11)."""
+    from frameassist import app, autostart
+
+    calls = []
+    monkeypatch.setattr(autostart, "set_enabled",
+                        lambda on: calls.append(on) or True)
+
+    app._register({"autostart": False})
+    assert calls == [False]
+    assert "does not start with SteamVR" in capsys.readouterr().out
+
+    app._register({"autostart": True})
+    assert calls == [False, True]
+    assert "starts with SteamVR" in capsys.readouterr().out
+
+    app._register({})  # fresh install: the default is on
+    assert calls == [False, True, True]
