@@ -284,3 +284,16 @@ def test_run_window_wiring_smoke(monkeypatch):
     # so keep no_model set and let the thread die with the test.
     assert app_mod.run_window(cfg) == 0
     # Reaching here means wiring (window created before hooks attached) worked.
+
+
+def test_pairing_code_eye_reveals_the_code(app):
+    from PySide6.QtWidgets import QLineEdit
+    from frameassist.config import DEFAULTS
+    cfg = dict(DEFAULTS, delivery="host", host_secret="s3cr3t")
+    dialog = SettingsDialog(cfg)
+    assert dialog.host_secret.echoMode() == QLineEdit.Password
+    dialog.host_secret_eye.setChecked(True)
+    assert dialog.host_secret.echoMode() == QLineEdit.Normal
+    assert dialog.values()["host_secret"] == "s3cr3t"
+    dialog.host_secret_eye.setChecked(False)
+    assert dialog.host_secret.echoMode() == QLineEdit.Password

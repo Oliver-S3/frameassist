@@ -8,12 +8,12 @@ and the window ignores typed keys so it can never be typed into.
 
 import sys
 
-from PySide6.QtCore import Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QColor, QPainter, QPen
+from PySide6.QtCore import Qt, QSize, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QIcon, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import (
     QAbstractButton, QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout,
     QFrame, QHBoxLayout, QLabel, QLineEdit, QMainWindow, QMessageBox, QMenu,
-    QPushButton, QScrollArea, QVBoxLayout, QWidget,
+    QPushButton, QScrollArea, QToolButton, QVBoxLayout, QWidget,
 )
 
 from . import __version__
@@ -33,6 +33,25 @@ def window_mic_unavailable_reason():
         return unavailable_reason()
     except Exception:
         return "window mic module failed to load"
+
+def _eye_icon(crossed=False):
+    """A small eye, drawn rather than themed so it looks the same everywhere."""
+    pix = QPixmap(20, 20)
+    pix.fill(Qt.transparent)
+    p = QPainter(pix)
+    p.setRenderHint(QPainter.Antialiasing)
+    pen = QPen(QColor("#c9d1e0"), 1.6)
+    p.setPen(pen)
+    p.drawEllipse(3, 7, 14, 7)
+    p.setPen(Qt.NoPen)
+    p.setBrush(QColor("#c9d1e0"))
+    p.drawEllipse(8, 9, 4, 4)
+    if crossed:
+        p.setPen(QPen(QColor("#c9d1e0"), 1.6))
+        p.drawLine(4, 16, 16, 4)
+    p.end()
+    return QIcon(pix)
+
 
 DARK_BG = "#0d1016"
 CARD = "#161b24"
@@ -185,7 +204,23 @@ class SettingsDialog(QDialog):
         self.host_secret = QLineEdit(cfg.get("host_secret", ""))
         self.host_secret.setEchoMode(QLineEdit.Password)
         self.host_secret.setPlaceholderText("pairing code from the PC helper")
-        self._add_host_row(form, "Pairing code", self.host_secret)
+        self.host_secret_row = QWidget()
+        secret_row = QHBoxLayout(self.host_secret_row)
+        secret_row.setContentsMargins(0, 0, 0, 0)
+        secret_row.setSpacing(4)
+        secret_row.addWidget(self.host_secret, 1)
+        self.host_secret_eye = QToolButton()
+        self.host_secret_eye.setCheckable(True)
+        self.host_secret_eye.setAutoRaise(True)
+        self.host_secret_eye.setIcon(_eye_icon())
+        self.host_secret_eye.setIconSize(QSize(18, 18))
+        self.host_secret_eye.setToolTip("Show the pairing code")
+        self.host_secret_eye.setAccessibleName("Show the pairing code")
+        self.host_secret_eye.toggled.connect(self._show_pairing_code)
+        secret_row.addWidget(self.host_secret_eye)
+        self._add_host_row(form, "Pairing code", self.host_secret_row)
+        # Hidden with the rest of the streamed-PC block, like the row itself.
+        self._host_widgets.append(self.host_secret)
 
         self.host_window = QLineEdit(cfg.get("host_window", ""))
         self.host_window.setPlaceholderText(
@@ -342,6 +377,13 @@ class SettingsDialog(QDialog):
         label = QLabel(label_text)
         form.addRow(label, field)
         self._host_widgets += [label, field]
+
+    def _show_pairing_code(self, shown):
+        self.host_secret.setEchoMode(
+            QLineEdit.Normal if shown else QLineEdit.Password)
+        self.host_secret_eye.setToolTip(
+            "Hide the pairing code" if shown else "Show the pairing code")
+        self.host_secret_eye.setIcon(_eye_icon(crossed=shown))
 
     def _update_host_visibility(self):
         """The streamed-PC fields only apply in 'host' delivery mode."""
