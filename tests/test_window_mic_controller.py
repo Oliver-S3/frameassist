@@ -632,11 +632,14 @@ def test_dock_pose_lands_right_of_the_bar():
         (1.0 + wm.DOCK_GAP + wm.PLATE_METERS / 2, 0.05, wm.DOCK_FRONT), abs=1e-9)
 
 
-def test_dock_pose_flips_a_downward_texture_axis():
-    pose = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, -0.1, 0.0))
+def test_dock_plate_stays_upright_even_when_the_bar_is_tilted():
+    # The bar's own axes are tilted on the Frame; the plate must stay upright
+    # or it rides on top of the bar instead of beside it.
+    pose = wm.dock_from_corners((0.0, 0.0, 0.0), (1.0, 0.0, -0.5), (0.0, 0.1, 0.0))
     assert pose is not None
-    _target, _right, up_u, facing = pose
-    assert up_u[1] > 0
+    target, right_u, up_u, facing = pose
+    assert up_u == (0.0, 1.0, 0.0)
+    assert right_u[1] == 0.0
     assert facing[2] > 0
 
 

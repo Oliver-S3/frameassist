@@ -135,7 +135,7 @@ BAR_SEQ = 0
 # when the dock is dragged, so the plate is pinned to its right end.
 DOCK_KEY = "valve.steam.gamepadui.bar"
 DOCK_GAP = 0.075    # plate centre beyond the bar's right corner
-DOCK_FRONT = 0.06   # toward the bar's facing (in front of the dock)
+DOCK_FRONT = 0.04   # toward the bar's facing (in front of the dock)
 # Gamescope exposes the app's own Qt windows too (the Settings dialog becomes a
 # newest-seq window). Only landscape windows are candidates for the bar anchor;
 # portrait windows (a phone-shaped app, the Settings dialog) are skipped.
@@ -316,8 +316,11 @@ def dock_from_corners(ll, lr, ul):
     """(target, right_u, up_u, facing) for the plate right of the Steam bar.
 
     ``ll``, ``lr`` and ``ul`` are world-space corner positions probed from the
-    bar overlay (lower-left, lower-right, upper-left). Returns None when the
-    corners are missing or degenerate (the bar reads zeros while it is down).
+    bar overlay. The plate is kept UPRIGHT (world up) beside the bar's right
+    corner, centred on the bar's height: aligning it to the bar's own tilted
+    axes made it ride on top of the bar instead of beside it. Returns None
+    when the corners are missing or degenerate (the bar reads zeros while it
+    is down).
     """
     if not (ll and lr and ul):
         return None
@@ -326,12 +329,10 @@ def dock_from_corners(ll, lr, ul):
         n = math.sqrt(v[0] ** 2 + v[1] ** 2 + v[2] ** 2)
         return None if n < 1e-6 else tuple(c / n for c in v)
 
-    right = norm((lr[0] - ll[0], lr[1] - ll[1], lr[2] - ll[2]))
-    up = norm((ul[0] - ll[0], ul[1] - ll[1], ul[2] - ll[2]))
-    if not right or not up:
+    right = norm((lr[0] - ll[0], 0.0, lr[2] - ll[2]))
+    if not right:
         return None
-    if up[1] < 0:  # texture y points down; keep the plate upright
-        up = tuple(-c for c in up)
+    up = (0.0, 1.0, 0.0)
     facing = (right[1] * up[2] - right[2] * up[1],
               right[2] * up[0] - right[0] * up[2],
               right[0] * up[1] - right[1] * up[0])
