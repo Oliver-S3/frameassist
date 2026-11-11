@@ -55,7 +55,17 @@ python3 - <<'PY' || fail "Python 3.10 or newer is needed."
 import sys; sys.exit(sys.version_info < (3, 10))
 PY
 mkdir -p "$APP_DIR" "$BIN"
+# An older or interrupted install can leave a venv that has no pip; reusing it
+# made the update die at "No module named pip" (reported live 2026-11-11).
+# Rebuild such an environment instead of failing the update.
+if [[ -x "$VENV/bin/python" ]] && ! "$VENV/bin/python" -m pip --version >/dev/null 2>&1; then
+  bold "Repairing the Python environment"
+  rm -rf "$VENV"
+fi
 [[ -x "$VENV/bin/python" ]] || python3 -m venv "$VENV" || fail "couldn't create a Python environment."
+"$VENV/bin/python" -m pip --version >/dev/null 2>&1 \
+  || "$VENV/bin/python" -m ensurepip --upgrade >/dev/null 2>&1 \
+  || fail "the Python environment has no pip; delete $VENV and rerun."
 "$VENV/bin/python" -m pip install --quiet --upgrade pip
 "$VENV/bin/python" -m pip install --quiet --upgrade "$SRC" || fail "package install failed (see above)."
 ok "App installed"
