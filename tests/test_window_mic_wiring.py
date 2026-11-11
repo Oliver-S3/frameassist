@@ -282,3 +282,20 @@ def test_bar_anchor_is_passed_to_the_controller(vr, monkeypatch):
     svr._sync_mic()
     assert svr.mic.anchor == "bar"
     assert svr.mic.hud is None
+
+
+def test_held_background_relays_mic_clicks_to_the_window():
+    """While a window copy is open the background is held; its mic plate must
+    stay clickable by relaying to the window's engine."""
+    svr = SteamVR(clock=Clock(), window_mic=True, window_mic_anchor="bar")
+    svr.engine = object()
+    forwarded = []
+    svr.forward_command = forwarded.append
+    svr.hold = True
+    assert svr._mic_can_act() is True
+    svr.send_command("talk_start")
+    assert forwarded == ["talk_start"]
+
+    # Held with nothing to relay to (e.g. still loading): clicks stay off.
+    svr.forward_command = None
+    assert svr._mic_can_act() is False

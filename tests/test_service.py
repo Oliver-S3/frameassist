@@ -129,3 +129,39 @@ def _wait_for(predicate, timeout=3.0):
             return
         time.sleep(0.01)
     raise AssertionError("timed out waiting for condition")
+
+
+def test_mic_clicks_reach_the_window(tmp_path, monkeypatch):
+    """The background keeps the mic plate while a window is open, but its
+    engine is held. Clicks have to be relayed to the window (live 2026-11-11:
+    the plate was dead whenever FrameAssist's own window was open)."""
+    monkeypatch.setattr(s, "state_dir", lambda: tmp_path)
+    server = s._Connector(on_window=lambda on: None, on_quit=lambda: None)
+    server.start()
+    link = s.Link.open(timeout=3)
+    assert link is not None
+    _wait_for(lambda: server.has_window())
+    got, lost = [], []
+    link.watch(lambda: lost.append(True), on_talk=got.append)
+    server.send_talk("talk_start")
+    _wait_for(lambda: got == ["talk_start"])
+    server.send_talk("talk_stop")
+    _wait_for(lambda: got == ["talk_start", "talk_stop"])
+    link.close()
+    _wait_for(lambda: lost)
+    server.close()
+
+
+def test_window_engine_state_reaches_the_background(tmp_path, monkeypatch):
+    monkeypatch.setattr(s, "state_dir", lambda: tmp_path)
+    states = []
+    server = s._Connector(on_window=lambda on: None, on_quit=lambda: None,
+                          on_state=lambda st, msg: states.append((st, msg)))
+    server.start()
+    link = s.Link.open(timeout=3)
+    assert link is not None
+    _wait_for(lambda: server.has_window())
+    link.send_state("working", "hello there")
+    _wait_for(lambda: states == [("working", "hello there")])
+    link.close()
+    server.close()

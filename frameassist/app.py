@@ -136,6 +136,11 @@ def run_window(cfg):
     link = service.Link.open() if background_running else None
 
     engine = Engine(cfg, copy_clipboard=_copy_clipboard)
+    if link is not None:
+        # The window owns typing while it is open; the background keeps the
+        # mic plate alive and relays its clicks to our engine.
+        link.watch(lambda: log.info("frameassist: the background copy went away"),
+                   on_talk=lambda cmd: engine.hotkey({"cmd": cmd}))
     # The background copy owns the window-mic overlays while it runs: its
     # SteamVR session stays up through hold (so the mic's ctypes token stays
     # valid) and it keeps ticking the mic. Only a standalone window starts its
@@ -196,8 +201,13 @@ def run_window(cfg):
     window.calibrate_overlay = _calibrate_overlay_factory
     # Wire state/transcript to the window AND the VR badge. engine._set already
     # stores (state, message) and calls on_state, so on_state just forwards.
-    engine.on_state = lambda state, message: (
-        window.notify_state(state, message) or vr.show_state(state, message))
+    def _on_state(state, message):
+        window.notify_state(state, message)
+        vr.show_state(state, message)
+        if link is not None:
+            # Let the background copy (which owns the mic plate) show this.
+            link.send_state(state, message)
+    engine.on_state = _on_state
     engine.on_transcript = window.notify_transcript
     window.show()
     vr.start()

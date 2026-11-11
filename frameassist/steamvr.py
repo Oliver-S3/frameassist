@@ -167,6 +167,9 @@ class SteamVR:
         self.connected = False
         self._stop = False
         self.hold = False
+        # Set by the background copy: relay mic clicks to the window while
+        # held, instead of dropping them (its engine is paused).
+        self.forward_command = None
         self._badge = None
         self._badge_dirty = False
         self._requests = []
@@ -259,7 +262,9 @@ class SteamVR:
         self.engine_state = state
 
     def _mic_can_act(self):
-        if self.engine is None or self.paused or self.hold:
+        if self.engine is None or self.paused:
+            return False
+        if self.hold and self.forward_command is None:
             return False
         if self.engine_state in ("working", "error"):
             return False
@@ -355,6 +360,12 @@ class SteamVR:
         by ``WindowMic._emit``'s try/except (live 2026-11-09: clicked the mic,
         it turned red, nothing recorded).
         """
+        if self.hold and self.forward_command is not None:
+            try:
+                self.forward_command(cmd)
+            except Exception as err:
+                log.warning("window mic: forwarding %r failed: %r", cmd, err)
+            return
         engine = self.engine
         if engine is None:
             self._warn_once("window mic: no gesture engine, command dropped")

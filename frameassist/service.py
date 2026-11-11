@@ -108,10 +108,11 @@ def same_user(sock):
 
 class _Connector:
     def __init__(self, on_window, on_quit, settle=lambda: None,
-                 on_settings=lambda: None):
+                 on_settings=lambda: None, on_state=lambda *_a: None):
         self.on_window, self.on_quit = on_window, on_quit
         self.settle = settle
         self.on_settings = on_settings
+        self.on_state = on_state
         self.last_text = ""
         self.windows = 0
         self._lock = threading.Lock()
@@ -136,6 +137,22 @@ class _Connector:
 
     def has_window(self):
         return self.windows > 0
+
+    def send_talk(self, cmd):
+        """Hand a mic click to the window copy.
+
+        While a window is open the background copy is held: its engine is
+        paused, so a click there used to be dropped and the visible mic plate
+        did nothing (live 2026-11-11). The window's engine owns the typing, so
+        relay the command instead of losing it.
+        """
+        with self._lock:
+            conns = list(self._conns)
+        for conn in conns:
+            try:
+                send(conn, {"talk": cmd})
+            except OSError:
+                pass
 
     def _accept(self):
         while True:
@@ -176,6 +193,14 @@ class _Connector:
                 message = receive(stream)
                 if isinstance(message.get("last_text"), str):
                     self.last_text = message["last_text"]
+                if isinstance(message.get("state"), str):
+                    # The window's engine is the one doing the work while it
+                    # is open; mirror its state so the mic plate shows it.
+                    try:
+                        self.on_state(message["state"],
+                                      message.get("message", ""))
+                    except Exception:
+                        pass
                 if message.get("settings"):
                     # Settings edited in the window apply to this copy right
                     # away, without waiting for the window to close.
@@ -237,12 +262,17 @@ class Link:
         last = reply.get("last_text")
         return cls(sock, last if isinstance(last, str) else "")
 
-    def watch(self, on_lost):
+    def watch(self, on_lost, on_talk=None):
+        """Listen for the background's messages (mic relays, state)."""
+
         def run():
+            stream = self.sock.makefile("rb")
             try:
-                while self.sock.recv(4096):
-                    pass
-            except OSError:
+                while True:
+                    message = receive(stream)
+                    if on_talk is not None and isinstance(message.get("talk"), str):
+                        on_talk(message["talk"])
+            except (OSError, ValueError):
                 pass
             self.alive = False
             on_lost()
@@ -250,6 +280,9 @@ class Link:
 
     def send_last(self, text):
         self._send({"last_text": text})
+
+    def send_state(self, state, message=""):
+        self._send({"state": state, "message": message})
 
     def reload_settings(self):
         self._send({"settings": True})
@@ -313,7 +346,10 @@ class Background:
         self.vr.hold = True
         self.engine.paused = True
         self.server = _Connector(self._window_changed, self._quit, self._settle,
-                                 self._reload_settings)
+                                 self._reload_settings, self._on_state)
+        # Held while a window copy is open: its engine does the work, so mic
+        # clicks on this copy's plate must be relayed to it.
+        self.vr.forward_command = self.server.send_talk
 
     def engine_gestures(self):
         from .gestures import GestureEngine
