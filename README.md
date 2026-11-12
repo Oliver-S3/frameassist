@@ -259,9 +259,14 @@ discovery of the PC on your LAN (**UDP auto-discovery**) is planned future work.
    PC instead of fiddling in the headset's virtual keyboard. On the Frame, in
    Konsole:
    ```bash
-   passwd                        # set a password for your user (one-time)
+   passwd                        # REQUIRED first: SSH needs a password for your user
    sudo systemctl enable --now sshd
    ```
+
+   SteamOS users often have **no password set**, and SSH refuses logins without
+   one. If `passwd` asks for your *current* password and you never set one, use
+   SteamOS's Konsole as that user and set it there (or reset it from Desktop
+   Mode). Then connect; if the password is rejected, you skipped this step.
    then connect from your PC:
    ```bash
    ssh <your-user>@<frame-ip>    # e.g. ssh deck@192.168.1.50
